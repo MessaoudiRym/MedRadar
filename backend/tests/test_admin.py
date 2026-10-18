@@ -1,4 +1,4 @@
-from tests.conftest import register_pharmacist
+from tests.conftest import find_medicine, register_pharmacist
 
 
 def test_admin_lists_pending_pharmacies(client, admin_headers):
@@ -10,6 +10,21 @@ def test_admin_lists_pending_pharmacies(client, admin_headers):
     assert body[0]["numero_professionnel"]
 
 
+def test_approved_pharmacy_is_public_and_can_declare(client, store, admin_headers):
+    headers, pharmacy_id, _ = register_pharmacist(client)
+    assert client.get("/pharmacies").json() == []
+
+    response = client.post(f"/admin/pharmacies/{pharmacy_id}/approve", headers=admin_headers)
+    assert response.status_code == 200
+    assert response.json()["statut"] == "validee"
+    assert [p["id"] for p in client.get("/pharmacies").json()] == [pharmacy_id]
+
+    medicine = find_medicine(store, "GLUCOPHAGE 850", "850MG")
+    declared = client.post("/pharmacist/stock", headers=headers,
+                           json={"medicament_id": medicine["id"], "statut": "en_stock"})
+    assert declared.status_code == 201
+
+
 def test_reject_and_suspend_need_a_reason(client, admin_headers):
     _, pharmacy_id, _ = register_pharmacist(client)
     url = f"/admin/pharmacies/{pharmacy_id}"
@@ -18,6 +33,18 @@ def test_reject_and_suspend_need_a_reason(client, admin_headers):
                            headers=admin_headers)
     assert rejected.json()["statut"] == "refusee"
     assert rejected.json()["motif"] == "Numéro professionnel introuvable"
+
+
+def test_suspended_pharmacy_disappears_and_cannot_declare(client, store, validated_pharmacist,
+                                                          admin_headers):
+    headers, pharmacy_id = validated_pharmacist()
+    client.post(f"/admin/pharmacies/{pharmacy_id}/suspend", json={"motif": "Signalement"},
+                headers=admin_headers)
+    assert client.get("/pharmacies").json() == []
+    medicine = find_medicine(store, "GLUCOPHAGE 850", "850MG")
+    response = client.post("/pharmacist/stock", headers=headers,
+                           json={"medicament_id": medicine["id"], "statut": "en_stock"})
+    assert response.status_code == 403
 
 
 def test_pharmacist_cannot_call_admin_routes(client):
