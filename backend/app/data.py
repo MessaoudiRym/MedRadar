@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CSV = PROJECT_ROOT / "data" / "clean" / "medicaments.csv"
 
 BOOL_COLUMNS = ["dosage_verifie", "disponible_officine", "exclu"]
-INT_COLUMNS = ["id", "nb_equivalents"]
+INT_COLUMNS = ["nb_equivalents"]
 
 
 def csv_path():

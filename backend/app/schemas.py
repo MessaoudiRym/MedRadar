@@ -9,7 +9,7 @@ class Health(BaseModel):
 
 
 class SearchResult(BaseModel):
-    id: int
+    id: str
     nom_marque: str
     molecule: str
     dosage_norm: str
@@ -18,7 +18,7 @@ class SearchResult(BaseModel):
 
 
 class Medicine(BaseModel):
-    id: int
+    id: str
     num_enregistrement: str
     nom_marque: str
     dci: str

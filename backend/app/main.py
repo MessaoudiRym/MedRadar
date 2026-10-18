@@ -49,7 +49,7 @@ app.add_middleware(
 )
 
 
-def get_medicine_or_404(request: Request, medicine_id: int):
+def get_medicine_or_404(request: Request, medicine_id: str):
     medicine = request.app.state.store.get(medicine_id)
     if medicine is None:
         raise HTTPException(status_code=404, detail="Medicine not found")
@@ -71,12 +71,12 @@ def search_medicines(
 
 
 @app.get("/medicines/{medicine_id}", response_model=Medicine)
-def get_medicine(request: Request, medicine_id: int):
+def get_medicine(request: Request, medicine_id: str):
     return get_medicine_or_404(request, medicine_id)
 
 
 @app.get("/medicines/{medicine_id}/equivalents", response_model=Equivalents)
-def get_equivalents(request: Request, medicine_id: int):
+def get_equivalents(request: Request, medicine_id: str):
     medicine = get_medicine_or_404(request, medicine_id)
     equivalents = request.app.state.store.equivalents(medicine)
     return {
