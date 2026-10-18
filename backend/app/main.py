@@ -1,28 +1,30 @@
-"""MedRadar API: search a medicine and get its registered equivalents.
+"""MedRadar API: medicines, equivalents, pharmacies and stock.
 
 Run from the backend/ folder:
     uvicorn app.main:app --reload
 """
 
-import os
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
+from .config import FRONTEND_URL, jwt_secret
 from .data import load_store
-from .schemas import Equivalents, Health, Medicine, SearchResult
+from .limiter import limiter
+from .routers import admin, auth, medicines
 from .search import SearchIndex
 
-NOTICE = (
-    "Ces médicaments contiennent la même substance active, au même dosage et sous "
-    "la même forme. Demandez toujours l'avis de votre pharmacien ou de votre "
-    "médecin avant de changer de médicament."
-)
+logger = logging.getLogger("medradar")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    jwt_secret()  # refuse to start without a proper secret
     store = load_store()  # read the CSV once, kept in memory
     app.state.store = store
     app.state.index = SearchIndex(store.records)
@@ -32,57 +34,48 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MedRadar API",
     description="Find registered equivalents of an out-of-stock medicine, "
-                "from the Algerian national nomenclature.",
-    version="0.1.0",
+                "from the Algerian national nomenclature, and pharmacies that have it.",
+    version="0.2.0",
     lifespan=lifespan,
 )
+app.state.limiter = limiter
 
 origins = ["http://localhost:3000"]
-if os.environ.get("FRONTEND_URL"):
-    origins.append(os.environ["FRONTEND_URL"].rstrip("/"))
+if FRONTEND_URL:
+    origins.append(FRONTEND_URL)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_methods=["GET"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
-def get_medicine_or_404(request: Request, medicine_id: str):
-    medicine = request.app.state.store.get(medicine_id)
-    if medicine is None:
-        raise HTTPException(status_code=404, detail="Medicine not found")
-    return medicine
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    """Invalid request: say which field and why, but never echo the values sent
+    (they can contain a password)."""
+    errors = [{
+        "loc": list(err.get("loc", [])),
+        "msg": err.get("msg", "").removeprefix("Value error, "),
+        "type": err.get("type", ""),
+    } for err in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
-@app.get("/health", response_model=Health)
-def health(request: Request):
-    return {"status": "ok", "medicines": len(request.app.state.store)}
+@app.exception_handler(RateLimitExceeded)
+async def rate_limited(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(status_code=429,
+                        content={"detail": "Trop de tentatives. Réessayez dans une minute."})
 
 
-@app.get("/medicines/search", response_model=list[SearchResult])
-def search_medicines(
-    request: Request,
-    q: str = Query(..., min_length=2, description="Brand name or active substance"),
-    limit: int = Query(10, ge=1, le=50),
-):
-    return request.app.state.index.search(q, limit)
+@app.exception_handler(Exception)
+async def unexpected_error(request: Request, exc: Exception):
+    """Log the details on the server, send no technical trace to the client."""
+    logger.exception("Unexpected error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Erreur interne du serveur."})
 
 
-@app.get("/medicines/{medicine_id}", response_model=Medicine)
-def get_medicine(request: Request, medicine_id: str):
-    return get_medicine_or_404(request, medicine_id)
-
-
-@app.get("/medicines/{medicine_id}/equivalents", response_model=Equivalents)
-def get_equivalents(request: Request, medicine_id: str):
-    medicine = get_medicine_or_404(request, medicine_id)
-    equivalents = request.app.state.store.equivalents(medicine)
-    return {
-        "medicine": medicine,
-        "dosage_verifie": medicine["dosage_verifie"],
-        "count": len(equivalents),
-        "equivalents": equivalents,
-        "notice": NOTICE,
-    }
+for module in (medicines, auth, admin):
+    app.include_router(module.router)
