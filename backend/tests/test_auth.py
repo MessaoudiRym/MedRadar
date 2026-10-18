@@ -97,6 +97,7 @@ def test_me_shows_pharmacy_status(client):
 
 def test_no_token_returns_401(client):
     assert client.get("/auth/me").status_code == 401
+    assert client.get("/pharmacist/stock").status_code == 401
     assert client.get("/admin/pharmacies").status_code == 401
 
 

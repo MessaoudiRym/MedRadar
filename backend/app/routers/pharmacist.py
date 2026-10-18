@@ -1,0 +1,131 @@
+"""Pharmacist space: own pharmacy and stock declarations.
+
+The pharmacy is ALWAYS the one linked to the logged-in account (get_own_pharmacy):
+no route takes a pharmacy id from the client, so a pharmacist cannot write
+for another pharmacy.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy.orm import Session
+
+from ..db import get_db, utcnow
+from ..models import (PHARMACY_PENDING, PHARMACY_REJECTED, PHARMACY_VALIDATED, Pharmacy,
+                      StockDeclaration, TrackedMedicine, User)
+from ..schemas import (DeclarationOut, OwnPharmacy, PharmacyUpdate, StockBulkIn,
+                       StockDeclarationIn, TrackedStock)
+from ..security import get_own_pharmacy, get_validated_pharmacy, require_pharmacist
+from ..stock import is_stale, latest_declarations
+
+router = APIRouter(prefix="/pharmacist", tags=["pharmacist"])
+
+
+@router.patch("/pharmacy", response_model=OwnPharmacy)
+def update_pharmacy(data: PharmacyUpdate, pharmacy: Pharmacy = Depends(get_own_pharmacy),
+                    db: Session = Depends(get_db)):
+    """Phone and opening hours change freely. A new address or position must be checked again."""
+    if data.telephone is not None:
+        pharmacy.phone = data.telephone
+    if data.horaires is not None:
+        pharmacy.opening_hours = data.horaires or None
+
+    moved = False
+    if data.adresse is not None and data.adresse != pharmacy.address:
+        pharmacy.address = data.adresse
+        moved = True
+    if data.latitude is not None and (data.latitude, data.longitude) != (
+            pharmacy.latitude, pharmacy.longitude):
+        pharmacy.latitude, pharmacy.longitude = data.latitude, data.longitude
+        moved = True
+
+    # A suspended pharmacy stays suspended: moving is not a way out of a suspension
+    if moved and pharmacy.status in (PHARMACY_VALIDATED, PHARMACY_REJECTED):
+        pharmacy.status = PHARMACY_PENDING
+        pharmacy.status_reason = None
+        pharmacy.validated_at = None
+        pharmacy.validated_by = None
+    db.commit()
+    return pharmacy
+
+
+def _check_medicines(request, medicine_ids):
+    store = request.app.state.store
+    unknown = [m for m in medicine_ids if store.get(m) is None]
+    if unknown:
+        raise HTTPException(status_code=404,
+                            detail=f"Médicament introuvable : {', '.join(unknown)}")
+
+
+def _declare(db, pharmacy, user, items):
+    """Add declarations (history is kept) and track the medicines."""
+    now = utcnow()
+    tracked = {t.medicine_id for t in db.query(TrackedMedicine).filter(
+        TrackedMedicine.pharmacy_id == pharmacy.id,
+        TrackedMedicine.medicine_id.in_([i.medicament_id for i in items]))}
+    declarations = []
+    for item in items:
+        declarations.append(StockDeclaration(
+            pharmacy_id=pharmacy.id, medicine_id=item.medicament_id,
+            status=item.statut, declared_by=user.id, declared_at=now))
+        if item.medicament_id not in tracked:
+            db.add(TrackedMedicine(pharmacy_id=pharmacy.id, medicine_id=item.medicament_id))
+            tracked.add(item.medicament_id)
+    db.add_all(declarations)
+    db.commit()
+    return [{"medicament_id": d.medicine_id, "statut": d.status,
+             "date_declaration": d.declared_at} for d in declarations]
+
+
+@router.post("/stock", response_model=DeclarationOut, status_code=status.HTTP_201_CREATED)
+def declare_stock(request: Request, data: StockDeclarationIn,
+                  pharmacy: Pharmacy = Depends(get_validated_pharmacy),
+                  user: User = Depends(require_pharmacist), db: Session = Depends(get_db)):
+    _check_medicines(request, [data.medicament_id])
+    return _declare(db, pharmacy, user, [data])[0]
+
+
+@router.post("/stock/bulk", response_model=list[DeclarationOut],
+             status_code=status.HTTP_201_CREATED)
+def declare_stock_bulk(request: Request, data: StockBulkIn,
+                       pharmacy: Pharmacy = Depends(get_validated_pharmacy),
+                       user: User = Depends(require_pharmacist), db: Session = Depends(get_db)):
+    """Up to 50 declarations; all are saved, or none if one medicine is unknown."""
+    _check_medicines(request, [d.medicament_id for d in data.declarations])
+    return _declare(db, pharmacy, user, data.declarations)
+
+
+@router.get("/stock", response_model=list[TrackedStock])
+def tracked_stock(request: Request, pharmacy: Pharmacy = Depends(get_own_pharmacy),
+                  db: Session = Depends(get_db)):
+    """Tracked medicines, the least recently updated first (what to update next)."""
+    store = request.app.state.store
+    latest = {row.medicine_id: row for row in latest_declarations(db, pharmacy_id=pharmacy.id)}
+    tracked = db.query(TrackedMedicine).filter(TrackedMedicine.pharmacy_id == pharmacy.id).all()
+
+    items = []
+    for t in tracked:
+        medicine = store.get(t.medicine_id)
+        if medicine is None:  # no longer in the nomenclature
+            continue
+        row = latest.get(t.medicine_id)
+        items.append({
+            "medicament": medicine,
+            "statut": row.status if row else None,
+            "date_declaration": row.declared_at if row else None,
+            "a_confirmer": is_stale(row.declared_at) if row else True,
+        })
+    # Never declared first, then from oldest to newest
+    items.sort(key=lambda i: (i["date_declaration"] is not None,
+                              i["date_declaration"] or 0, i["medicament"]["nom_marque"]))
+    return items
+
+
+@router.delete("/tracked/{medicine_id}", status_code=status.HTTP_204_NO_CONTENT)
+def untrack(medicine_id: str, pharmacy: Pharmacy = Depends(get_own_pharmacy),
+            db: Session = Depends(get_db)):
+    """Stop following a medicine: it is no longer shown to patients for this pharmacy."""
+    tracked = db.get(TrackedMedicine, (pharmacy.id, medicine_id))
+    if tracked is None:
+        raise HTTPException(status_code=404, detail="Ce médicament n'est pas dans votre liste.")
+    db.delete(tracked)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

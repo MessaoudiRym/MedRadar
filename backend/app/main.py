@@ -16,7 +16,7 @@ from slowapi.errors import RateLimitExceeded
 from .config import FRONTEND_URL, jwt_secret
 from .data import load_store
 from .limiter import limiter
-from .routers import admin, auth, medicines
+from .routers import admin, auth, medicines, pharmacist
 from .search import SearchIndex
 
 logger = logging.getLogger("medradar")
@@ -77,5 +77,5 @@ async def unexpected_error(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Erreur interne du serveur."})
 
 
-for module in (medicines, auth, admin):
+for module in (medicines, auth, pharmacist, admin):
     app.include_router(module.router)
