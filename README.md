@@ -61,6 +61,37 @@ python scripts/clean_nomenclature.py
 python scripts/check_equivalents.py GLUCOPHAGE LEVOTHYROX
 ```
 
+### API
+
+The API reads `data/clean/medicaments.csv` once at startup, so run `scripts/clean_nomenclature.py` first.
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+- API: http://localhost:8000 (for example http://localhost:8000/medicines/search?q=glucofage)
+- Interactive documentation: http://localhost:8000/docs
+
+| Route | What it returns |
+| --- | --- |
+| `GET /health` | Status and number of medicines loaded |
+| `GET /medicines/search?q=...&limit=10` | Medicines matching a brand name or active ingredient, typos allowed |
+| `GET /medicines/{id}` | Full details of one medicine |
+| `GET /medicines/{id}/equivalents` | The medicine, its equivalents and a safety notice |
+
+Optional environment variables:
+
+- `MEDICINES_CSV`: path to another cleaned CSV (default: `data/clean/medicaments.csv`)
+- `FRONTEND_URL`: production frontend URL allowed by CORS (`http://localhost:3000` is always allowed)
+
+Run the tests from `backend/`:
+
+```bash
+python -m pytest
+```
+
 ## How equivalents are found
 
 Two medicines are suggested as equivalents only when all three rules match:
