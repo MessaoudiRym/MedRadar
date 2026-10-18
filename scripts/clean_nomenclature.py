@@ -10,6 +10,7 @@ Usage:
     python scripts/clean_nomenclature.py
 """
 
+import hashlib
 import re
 import unicodedata
 from pathlib import Path
@@ -389,7 +390,20 @@ def clean_registration(value):
     return re.sub(r"\s+", " ", str(value)).strip().upper() if pd.notna(value) else ""
 
 
-def main():
+ID_FIELDS = ["num_enregistrement", "nom_marque", "dosage_norm", "forme", "conditionnement"]
+
+
+def make_id(row):
+    """Stable id: the same presentation keeps the same id when the script is run again.
+
+    Pharmacies' stock declarations point to this id, so it must not be a row number.
+    """
+    text = "|".join(row[f] for f in ID_FIELDS)
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
+
+
+def build():
+    """Clean the nomenclature and return (medicines, eligible mask)."""
     main_sheet = read_sheet(SHEET_MAIN)
     df = main_sheet[[c for c in COLUMNS if c in main_sheet.columns]].rename(columns=COLUMNS)
 
@@ -432,7 +446,15 @@ def main():
         for key, brand in zip(df["equivalence_key"], df["nom_marque"])
     ]
 
-    df.insert(0, "id", range(1, len(df) + 1))
+    df.insert(0, "id", df.apply(make_id, axis=1))
+    duplicates = df[df["id"].duplicated(keep=False)]
+    if not duplicates.empty:
+        raise ValueError(f"Duplicate ids:\n{duplicates[['id'] + ID_FIELDS]}")
+    return df, eligible
+
+
+def main():
+    df, eligible = build()
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     df[OUTPUT_COLUMNS].to_csv(OUT_FILE, index=False, encoding="utf-8")
 

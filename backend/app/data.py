@@ -4,20 +4,14 @@ The CSV is produced by scripts/clean_nomenclature.py. Its path can be changed
 with the MEDICINES_CSV environment variable.
 """
 
-import os
 from pathlib import Path
 
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CSV = PROJECT_ROOT / "data" / "clean" / "medicaments.csv"
+from .config import MEDICINES_CSV
 
 BOOL_COLUMNS = ["dosage_verifie", "disponible_officine", "exclu"]
-INT_COLUMNS = ["id", "nb_equivalents"]
-
-
-def csv_path():
-    return Path(os.environ.get("MEDICINES_CSV", DEFAULT_CSV))
+INT_COLUMNS = ["nb_equivalents"]
 
 
 class MedicineStore:
@@ -35,6 +29,12 @@ class MedicineStore:
 
     def get(self, medicine_id):
         return self.by_id.get(medicine_id)
+
+    def same_key(self, medicine):
+        """Every presentation with the same key, including other packs of the same brand."""
+        if not medicine["dosage_norm"]:
+            return [medicine]
+        return self.by_key.get(medicine["equivalence_key"], [medicine])
 
     def equivalents(self, medicine):
         """Same equivalence key, another brand name, one result per brand name.
@@ -57,7 +57,7 @@ class MedicineStore:
 
 def load_store(path=None):
     """Read the CSV and keep only medicines sold in pharmacies and not withdrawn."""
-    path = Path(path) if path else csv_path()
+    path = Path(path) if path else MEDICINES_CSV
     if not path.exists():
         raise FileNotFoundError(
             f"{path} not found. Run: python scripts/clean_nomenclature.py")

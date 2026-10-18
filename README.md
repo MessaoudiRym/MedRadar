@@ -63,34 +63,67 @@ python scripts/check_equivalents.py GLUCOPHAGE LEVOTHYROX
 
 ### API
 
-The API reads `data/clean/medicaments.csv` once at startup, so run `scripts/clean_nomenclature.py` first.
+The API reads `data/clean/medicaments.csv` once at startup, so run `scripts/clean_nomenclature.py` first. Pharmacies, accounts and stock are stored in a database (SQLite by default, PostgreSQL in production).
+
+**1. Create the `.env` file** at the project root, then replace every value (never commit it):
+
+```bash
+cp .env.example .env
+python -c "import secrets; print(secrets.token_urlsafe(48))"   # paste the result as JWT_SECRET
+```
+
+**2. Install, create the tables, the admin account and the demo data:**
 
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+python -m alembic upgrade head          # creates or updates the database tables
+cd ..
+python scripts/create_admin.py          # uses ADMIN_EMAIL and ADMIN_PASSWORD from .env
+python scripts/generate_demo_data.py    # fictional pharmacies and stock (see below)
+```
+
+**3. Run the API:**
+
+```bash
+cd backend
+python -m uvicorn app.main:app --reload
 ```
 
 - API: http://localhost:8000 (for example http://localhost:8000/medicines/search?q=glucofage)
-- Interactive documentation: http://localhost:8000/docs
+- Interactive documentation: http://localhost:8000/docs (use **Authorize** to paste a login token)
 
-| Route | What it returns |
-| --- | --- |
-| `GET /health` | Status and number of medicines loaded |
-| `GET /medicines/search?q=...&limit=10` | Medicines matching a brand name or active ingredient, typos allowed |
-| `GET /medicines/{id}` | Full details of one medicine |
-| `GET /medicines/{id}/equivalents` | The medicine, its equivalents and a safety notice |
+| Route | Access | What it does |
+| --- | --- | --- |
+| `GET /health` | public | Status and number of medicines loaded |
+| `GET /medicines/search?q=...&limit=10` | public | Medicines matching a brand name or active ingredient, typos allowed |
+| `GET /medicines/{id}` | public | Full details of one medicine |
+| `GET /medicines/{id}/equivalents` | public | The medicine, its equivalents and a safety notice |
+| `GET /medicines/{id}/availability?lat=&lng=&radius_km=10` | public | Validated pharmacies that have the medicine or an equivalent, nearest first |
+| `GET /pharmacies` | public | Validated pharmacies, without personal data |
+| `POST /alerts` | public | Be alerted when a medicine is back in stock |
+| `POST /auth/register-pharmacist`, `POST /auth/login` | public | Pharmacist registration and login |
+| `GET /auth/me`, `POST /auth/change-password` | logged in | Own account |
+| `/pharmacist/...` | pharmacist | Own pharmacy and stock declarations |
+| `/admin/...` | admin | Check, approve, reject or suspend pharmacies |
 
-Optional environment variables:
+Environment variables (see `.env.example`): `DATABASE_URL`, `JWT_SECRET` (required), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEMO_PHARMACIST_PASSWORD`, `FRONTEND_URL` (production frontend allowed by CORS; `http://localhost:3000` is always allowed) and optionally `MEDICINES_CSV`.
 
-- `MEDICINES_CSV`: path to another cleaned CSV (default: `data/clean/medicaments.csv`)
-- `FRONTEND_URL`: production frontend URL allowed by CORS (`http://localhost:3000` is always allowed)
-
-Run the tests from `backend/`:
+**Run the tests** from `backend/`. They use a temporary database, never the real one:
 
 ```bash
 python -m pytest
 ```
+
+## Pharmacist accounts
+
+1. **Registration.** A pharmacist creates an account and their pharmacy in one step (`POST /auth/register-pharmacist`). The pharmacy starts as *pending*: it is invisible to patients and cannot declare stock.
+2. **Verification.** An admin checks the pharmacy (professional number, address, phone) and approves, rejects or suspends it, with a reason for a rejection or suspension. Changing the address or position later sends the pharmacy back to verification.
+3. **Declaration.** Once approved, the pharmacist marks medicines "in stock" or "out of stock" for their own pharmacy only, one by one or up to 50 at a time. Patients see the latest declaration; one older than 7 days is shown as "to be confirmed by phone".
+
+Admin accounts are only created by `scripts/create_admin.py`; no API route can create one. See [docs/privacy.md](docs/privacy.md) for the data stored.
+
+**Demo data.** The 40 demo pharmacies, their stock levels and the demo pharmacist accounts are simulated and fictional: names, addresses and phone numbers (0550 00 00 XX) are made up, and positions are random points in real Oran districts. API responses say so (`"demo_data": true`). Only the medicines and their equivalents come from official data.
 
 ## How equivalents are found
 

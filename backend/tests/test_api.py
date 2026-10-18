@@ -1,13 +1,4 @@
-import pytest
-from fastapi.testclient import TestClient
-
-from app.main import NOTICE, app
-
-
-@pytest.fixture(scope="module")
-def client():
-    with TestClient(app) as c:  # "with" runs the startup that loads the CSV
-        yield c
+from app.routers.medicines import NOTICE
 
 
 def find_id(client, brand, dosage):
@@ -88,3 +79,17 @@ def test_unverified_dose_is_flagged(client):
                     if not m["dosage_verifie"] and m["dosage_norm"])
     body = client.get(f"/medicines/{medicine['id']}/equivalents").json()
     assert body["dosage_verifie"] is False
+
+
+def test_internal_error_returns_no_technical_trace(client, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("secret detail: /home/server/app.py line 42")
+
+    monkeypatch.setattr(client.app.state.index, "search", broken)
+    safe_client = TestClient(client.app, raise_server_exceptions=False)
+    response = safe_client.get("/medicines/search", params={"q": "tahor"})
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Erreur interne du serveur."}
+    assert "secret" not in response.text and "Traceback" not in response.text

@@ -23,3 +23,7 @@ Thumbs.db
 .idea/
 
 *.log
+
+# Local databases
+*.db
+*.db-journal
