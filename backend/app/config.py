@@ -1,0 +1,43 @@
+"""Settings, read from environment variables (or from the .env file at the project root).
+
+Secrets are never written in the code: see .env.example.
+"""
+
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+# Variables already set in the environment win over the .env file
+load_dotenv(PROJECT_ROOT / ".env", override=False)
+
+
+def _database_url():
+    url = os.environ.get("DATABASE_URL", "sqlite:///backend/medradar.db")
+    # A relative SQLite path is relative to the project root, whatever the current folder
+    prefix = "sqlite:///"
+    if url.startswith(prefix) and not Path(url[len(prefix):]).is_absolute():
+        url = prefix + (PROJECT_ROOT / url[len(prefix):]).as_posix()
+    return url
+
+
+DATABASE_URL = _database_url()
+MEDICINES_CSV = Path(os.environ.get(
+    "MEDICINES_CSV", PROJECT_ROOT / "data" / "clean" / "medicaments.csv"))
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "").rstrip("/")
+
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_DAYS = 7
+JWT_MIN_SECRET_LENGTH = 32
+
+
+def jwt_secret():
+    """The key that signs tokens. Required: the API refuses to start without it."""
+    secret = os.environ.get("JWT_SECRET", "")
+    if len(secret) < JWT_MIN_SECRET_LENGTH:
+        raise RuntimeError(
+            f"JWT_SECRET must be set and at least {JWT_MIN_SECRET_LENGTH} characters long. "
+            'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(48))"')
+    return secret
