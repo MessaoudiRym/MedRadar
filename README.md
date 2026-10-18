@@ -53,13 +53,23 @@ MedRadar/
 
 ## Run locally
 
-_Instructions will be added as the project is built._
-
 ```bash
 git clone https://github.com/<your-username>/MedRadar.git
 cd MedRadar
-cp .env.example .env   # then fill in your own keys
+pip install -r requirements.txt
+python scripts/clean_nomenclature.py
+python scripts/check_equivalents.py GLUCOPHAGE LEVOTHYROX
 ```
+
+## How equivalents are found
+
+Two medicines are suggested as equivalents only when all three rules match:
+
+1. **Same active ingredient.** The INN/DCI is cleaned so that different spellings of the same substance match: "CHLORHYDRATE DE METFORMINE" = "METFORMINE CHLORHYDRATE", "AMLODIPINE BESILATE EXPRIME EN AMLODIPINE" = "AMLODIPINE SOUS FORME BESYLATE", and "IRBESARTAN/AMLODIPINE" = "AMLODIPINE/IRBESARTAN".
+2. **Same dose, after normalization.** "1G", "1 000 MG" and "1000MG" are the same dose; micrograms, grams and litres are converted to one unit.
+3. **Same form group.** The ~680 ways the file writes forms are grouped into about thirty groups (tablet, capsule, syrup, injectable, eye drops...). Modified-release and gastro-resistant forms are always kept apart: an extended-release tablet is never suggested in place of a normal tablet.
+
+Only medicines sold in community pharmacies and not withdrawn or non-renewed are suggested.
 
 ## Who built what
 
