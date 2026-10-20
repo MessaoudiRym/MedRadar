@@ -1,26 +1,111 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * MedRadar colours. Text colours keep a contrast of at least 4.5:1 on their
+ * background (most are above 7:1). Stock status always comes with a word or
+ * an icon: colour alone never carries the meaning.
+ */
+@theme {
+  --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #1b2430;
+  --color-muted: #4a5563;
+  --color-paper: #f6f5f1;
+  --color-surface: #ffffff;
+  --color-line: #d8d4cc;
+
+  --color-brand: #1d5a72;
+  --color-brand-dark: #154356;
+  --color-brand-soft: #e2edf1;
+
+  --color-stock: #17663a;
+  --color-stock-soft: #e3f3e8;
+  --color-stock-line: #9fd3b0;
+
+  --color-out: #a32020;
+  --color-out-soft: #fbe8e6;
+  --color-out-line: #efb3ad;
+
+  --color-unknown: #4a5563;
+  --color-unknown-soft: #eceef0;
+  --color-unknown-line: #c5cad1;
+
+  --color-caution: #7a4b00;
+  --color-caution-soft: #fdf2d9;
+  --color-caution-line: #ecc77a;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  font-size: 106.25%; /* 17px base */
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  line-height: 1.55;
+}
+
+/* A focus ring that is always visible, for keyboard users */
+:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+/* Leaflet: keep the map under the header and above the page */
+.leaflet-container {
+  font: inherit;
+  z-index: 0;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+}
+
+.marker-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.marker-pin--stock {
+  background: var(--color-stock);
+}
+
+.marker-pin--out {
+  background: var(--color-out);
+}
+
+.marker-pin--unknown {
+  background: #6b7280;
+}
+
+.marker-pin--you {
+  background: var(--color-brand);
+  width: 22px;
+  height: 22px;
+  outline: 6px solid rgb(29 90 114 / 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
