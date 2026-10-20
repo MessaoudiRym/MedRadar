@@ -6,7 +6,7 @@
  * an icon: colour alone never carries the meaning.
  */
 @theme {
-  --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-main), ui-sans-serif, system-ui, sans-serif;
 
   --color-ink: #1b2430;
   --color-muted: #4a5563;
