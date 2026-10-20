@@ -30,3 +30,13 @@ export function formatPhone(phone: string): string {
   if (/^0\d{8}$/.test(phone)) return phone.replace(/^(\d{3})(\d{2})(\d{2})(\d{2})$/, "$1 $2 $3 $4");
   return phone;
 }
+
+const UNITS: Record<string, string> = { MG: "mg", MCG: "µg", G: "g", ML: "ml", UI: "IU", MUI: "MIU", KUI: "kIU", NG: "ng", L: "l", DOSE: "dose", SACHET: "sachet" };
+
+/** "1000MG" -> "1000 mg", "50MCG/DOSE" -> "50 µg/dose", "1MG/ML" -> "1 mg/ml" */
+export function formatDose(dose: string): string {
+  return dose
+    .split("/")
+    .map((part) => part.replace(/^([\d.]*)([A-Z]+)$/, (_, n: string, unit: string) => (n ? `${n} ` : "") + (UNITS[unit] ?? unit.toLowerCase())))
+    .join("/");
+}
