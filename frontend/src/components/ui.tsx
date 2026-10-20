@@ -34,6 +34,13 @@ export function buttonClass(variant: Variant = "primary", size: Size = "md", ext
   ].join(" ");
 }
 
+/**
+ * For submit buttons below fields that validate on blur: keep the focus on the
+ * field when the button is pressed, so the error that appears does not move
+ * the button away before the click ends (the click would then be lost).
+ */
+export const keepFocus = { onMouseDown: (event: React.MouseEvent) => event.preventDefault() };
+
 export const inputClass =
   "block w-full min-h-12 rounded-lg border-2 border-line bg-surface px-3.5 text-base text-ink " +
   "placeholder:text-muted/80 focus:border-brand aria-[invalid=true]:border-out";

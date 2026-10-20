@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { BellIcon } from "../icons";
-import { buttonClass, Field, inputClass, Notice } from "../ui";
+import { buttonClass, Field, inputClass, keepFocus, Notice } from "../ui";
 import { api, errorMessage } from "@/lib/api";
 import type { LatLng } from "@/lib/geo";
 import { titleCase } from "@/lib/messages";
@@ -80,7 +80,7 @@ export function AlertForm({ medicineId, medicineName, position, radiusKm }: Prop
               <p>{state.message}</p>
             </Notice>
           )}
-          <button type="submit" disabled={state.status === "sending"} className={buttonClass("primary", "lg")}>
+          <button type="submit" {...keepFocus} disabled={state.status === "sending"} className={buttonClass("primary", "lg")}>
             {state.status === "sending" ? "Saving…" : "Notify me"}
           </button>
         </form>
