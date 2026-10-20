@@ -24,7 +24,7 @@ Pharmacists update their stock in two taps.
 
 | Data | Status |
 | --- | --- |
-| Medicines and equivalents | **Real** — national nomenclature of pharmaceutical products, Ministry of Pharmaceutical Industry ([miph.gov.dz](https://www.miph.gov.dz)). Version: _to be added_ |
+| Medicines and equivalents | **Real** — national nomenclature of pharmaceutical products, Ministry of Pharmaceutical Industry ([miph.gov.dz](https://www.miph.gov.dz)). Version: August 2026 |
 | Pharmacies and stock levels | **Simulated** for the demo — fictional pharmacies placed in real Oran neighbourhoods, until real pharmacies join |
 
 ## Tech stack
@@ -114,6 +114,47 @@ Environment variables (see `.env.example`): `DATABASE_URL`, `JWT_SECRET` (requir
 ```bash
 python -m pytest
 ```
+
+### Frontend
+
+The web app (Next.js) is in `frontend/`. Start the API first (see above), then:
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local    # NEXT_PUBLIC_API_URL, default http://localhost:8000
+npm run dev
+```
+
+Open http://localhost:3000. The interface is in English and works on phones. Pages:
+
+| Page | What it shows |
+| --- | --- |
+| `/` | Search, with suggestions while typing (typos allowed) |
+| `/medicament/{id}` | The medicine, pharmacies that have it near you on a map, its equivalents, and an alert form |
+| `/pharmacien/inscription`, `/pharmacien/connexion` | Pharmacist registration (2 steps) and login |
+| `/pharmacien` | Pharmacist dashboard: pharmacy status and one-tap stock updates |
+| `/admin` | Admin: verify, approve, reject or suspend pharmacies |
+| `/confidentialite` | Privacy policy |
+
+`NEXT_PUBLIC_API_URL` is the URL of the API. It is read when the app is built, so run `npm run build` again after changing it.
+
+Check the code and build for production:
+
+```bash
+npm run lint
+npm run build && npm run start
+```
+
+**End-to-end tests** (Playwright) start their own API on a fresh demo database (`backend/e2e.db`, never the development one) and a production build of the frontend, then test the main journeys in a desktop and a mobile browser:
+
+```bash
+npx playwright install chromium   # once
+npm run test:e2e
+npm run screenshots               # updates docs/screenshots/
+```
+
+Screenshots of the main screens are in [docs/screenshots/](docs/screenshots/).
 
 ## Pharmacist accounts
 
