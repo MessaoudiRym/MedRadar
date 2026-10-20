@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "playwright test --project=desktop --project=mobile",
+    "screenshots": "playwright test --project=screenshots"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

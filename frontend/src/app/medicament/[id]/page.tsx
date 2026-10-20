@@ -10,24 +10,25 @@ import { titleCase } from "@/lib/messages";
 import type { Medicine } from "@/lib/types";
 
 // The nomenclature changes rarely: the page title can be cached for an hour
-async function getMedicineForTitle(id: string) {
+async function getMedicineForTitle(id: string): Promise<Medicine | null> {
   "use cache";
   cacheLife("hours");
-  return api<Medicine>(`/medicines/${id}`);
+  try {
+    return await api<Medicine>(`/medicines/${id}`);
+  } catch {
+    return null; // unknown medicine or API down: a generic title is used
+  }
 }
 
 export async function generateMetadata({ params }: PageProps<"/medicament/[id]">): Promise<Metadata> {
   const { id } = await params;
-  try {
-    const m = await getMedicineForTitle(id);
-    const name = `${titleCase(m.nom_marque)} ${formatDose(m.dosage_norm)}`.trim();
-    return {
-      title: name,
-      description: `${name} (${titleCase(m.molecule)}): equivalents registered in Algeria and pharmacies that have it near you.`,
-    };
-  } catch {
-    return { title: "Medicine", description: "Equivalents and pharmacies that have this medicine near you." };
-  }
+  const m = await getMedicineForTitle(id);
+  if (!m) return { title: "Medicine", description: "Equivalents and pharmacies that have this medicine near you." };
+  const name = `${titleCase(m.nom_marque)} ${formatDose(m.dosage_norm)}`.trim();
+  return {
+    title: name,
+    description: `${name} (${titleCase(m.molecule)}): equivalents registered in Algeria and pharmacies that have it near you.`,
+  };
 }
 
 export default function MedicinePage({ params }: PageProps<"/medicament/[id]">) {
