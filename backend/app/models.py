@@ -117,3 +117,12 @@ class Search(Base):
     medicine_id: Mapped[str] = mapped_column(MEDICINE_ID, index=True)
     district: Mapped[str | None] = mapped_column(String(100))
     searched_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class RecognitionAttempt(Base):
+    """Statistics only: did a photo lead to a medicine? No image, no text read, no IP."""
+    __tablename__ = "recognition_attempts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    succeeded: Mapped[bool] = mapped_column(Boolean)
+    attempted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

@@ -16,8 +16,10 @@ from slowapi.errors import RateLimitExceeded
 from .config import FRONTEND_URL, jwt_secret
 from .data import load_store
 from .limiter import limiter
-from .routers import admin, auth, medicines, pharmacist, public
+from .routers import admin, auth, medicines, pharmacist, public, recognition
+from .routers.recognition import RecognitionFailed
 from .search import SearchIndex
+from .vision import make_reader
 
 logger = logging.getLogger("medradar")
 
@@ -28,6 +30,7 @@ async def lifespan(app: FastAPI):
     store = load_store()  # read the CSV once, kept in memory
     app.state.store = store
     app.state.index = SearchIndex(store.records)
+    app.state.reader = make_reader()  # None: photo recognition is off
     yield
 
 
@@ -35,7 +38,7 @@ app = FastAPI(
     title="MedRadar API",
     description="Find registered equivalents of an out-of-stock medicine, "
                 "from the Algerian national nomenclature, and pharmacies that have it.",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 app.state.limiter = limiter
@@ -66,8 +69,18 @@ async def validation_error(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limited(request: Request, exc: RateLimitExceeded):
+    if request.url.path == "/medicines/recognize":
+        return JSONResponse(status_code=429, content={
+            "detail": "Limite de 10 photos par heure atteinte. Tapez le nom du médicament "
+                      "ou réessayez plus tard.",
+            "code": "limite"})
     return JSONResponse(status_code=429,
                         content={"detail": "Trop de tentatives. Réessayez dans une minute."})
+
+
+@app.exception_handler(RecognitionFailed)
+async def recognition_failed(request: Request, exc: RecognitionFailed):
+    return JSONResponse(status_code=exc.status, content={"detail": exc.message, "code": exc.code})
 
 
 @app.exception_handler(Exception)
@@ -77,5 +90,5 @@ async def unexpected_error(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Erreur interne du serveur."})
 
 
-for module in (medicines, public, auth, pharmacist, admin):
+for module in (medicines, recognition, public, auth, pharmacist, admin):
     app.include_router(module.router)
