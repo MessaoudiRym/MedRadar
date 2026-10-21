@@ -97,6 +97,7 @@ python -m uvicorn app.main:app --reload
 | --- | --- | --- |
 | `GET /health` | public | Status and number of medicines loaded |
 | `GET /medicines/search?q=...&limit=10` | public | Medicines matching a brand name or active ingredient, typos allowed |
+| `GET /medicines/search?q=...&interpret=true` | public | Validated search in French, Arabic, Darija or English: `results`, how the query was understood (`interpretation`) and a `message` (see "Multilingual search") |
 | `GET /medicines/{id}` | public | Full details of one medicine |
 | `GET /medicines/{id}/equivalents` | public | The medicine, its equivalents and a safety notice |
 | `GET /features` | public | Which optional features are on (`photo_recognition`) |
@@ -133,6 +134,7 @@ Open http://localhost:3000. The interface is in English and works on phones. Pag
 | Page | What it shows |
 | --- | --- |
 | `/` | Search, with suggestions while typing (typos allowed) |
+| `/recherche?q=...` | Validated search: results and what was understood (Arabic, Darija, English) |
 | `/medicament/{id}` | The medicine, pharmacies that have it near you on a map, its equivalents, and an alert form |
 | `/pharmacien/inscription`, `/pharmacien/connexion` | Pharmacist registration (2 steps) and login |
 | `/pharmacien` | Pharmacist dashboard: pharmacy status and one-tap stock updates |
@@ -177,6 +179,22 @@ Two medicines are suggested as equivalents only when all three rules match:
 3. **Same form group.** The ~680 ways the file writes forms are grouped into about thirty groups (tablet, capsule, syrup, injectable, eye drops...). Modified-release and gastro-resistant forms are always kept apart: an extended-release tablet is never suggested in place of a normal tablet.
 
 Only medicines sold in community pharmacies and not withdrawn or non-renewed are suggested.
+
+## Multilingual search
+
+Many Algerian patients write the name of their medicine in Arabic letters ("غلوكوفاج"), in Darija ("dwa ta3 glucophage", "glucofaj 850") or know it under its English or foreign name ("metformin", "Tylenol"). The search understands all of them, with one rule: **the language model understands and translates names, the database checks, the patient confirms.**
+
+1. **Without AI, first.** The query is cleaned (accents, Arabic digits "٨٥٠" → 850, linking words such as "dwa", "ta3", "دوا", "medicine" removed), its language is detected from its script and common words, and a written dose is kept. Names in Arabic letters or arabizi are found by **transliteration rules**: every name of the nomenclature and the query are written as the same "sound key" (ف = F/PH/V, ك = K/C, ج = J/G...), so "غلوكوفاج" and "glucofaj" both find GLUCOPHAGE in about a millisecond.
+2. **The model, only when it helps.** Suggestions shown while typing never call the model (`interpret=false`). When the patient validates the search (Enter or the Search button, `interpret=true`), Google Gemini (Flash, free tier) may be asked what *name* was typed: a brand, a molecule (metformin → METFORMINE, acetaminophen → PARACETAMOL), or a foreign brand and its molecule. With `ARABIC_SEARCH_MODE=llm_first` (default) it is asked for Arabic, Darija, arabizi and English queries, and for French queries the normal search is unsure about; with `rules_first`, only when the rules are unsure.
+3. **The database checks.** Every name proposed by the model must sound like what the patient typed, and must exist in the nomenclature (sold in pharmacies, not withdrawn); a dose must be written in the query. Nothing else is ever shown. The results page says what was understood ("You wrote “غلوكوفاج” — we understood: GLUCOPHAGE") and marks uncertain answers *to check*.
+
+**What it never does: go from a disease or a symptom to a medicine.** "دوا السكر", "medicine for diabetes" or "dwa ta3 rass" give no result and a message asking for the name on the box or advice from a pharmacist. This is guaranteed by our code, not by the model: a list of disease, symptom and use words in French, Arabic, Darija and English is checked before any call, and a model answer "disease or symptom" also gives no result, even if it proposes a medicine.
+
+**Without AI, it still works.** Without a key, or when the model is slow (8 s), over quota or wrong, the search silently uses the rules: the patient never sees an error.
+
+**Saving the free quota.** No call while typing; a 30-day cache in the database (`interpretations_cache`), so the same query is never sent twice; at most 20 calls per hour per IP (cached answers do not count). Only the text of the query is sent, and logs never contain it (see [docs/privacy.md](docs/privacy.md)).
+
+**Results** (69 test queries, October 2026, real Gemini free tier): the right medicine comes first for **100 %** of the queries in both modes (brands and molecules in Arabic letters, Darija, arabizi, English, foreign brands, French typos), and **100 % of the 16 disease and symptom queries are refused**. `llm_first` made 41 calls to the model (0.8 s per search on average), `rules_first` only 12 (0.2 s). Without any model, the rules alone already reach 90 %: the failures are translations such as acetaminophen → PARACETAMOL and foreign brands. These queries were written for the project and used to fix the failures they revealed, so they should be completed with queries typed by real patients. See [docs/multilingual_results.md](docs/multilingual_results.md); run `python scripts/evaluate_multilingual.py` to measure again on the 69 queries of [docs/multilingual_eval.csv](docs/multilingual_eval.csv) (brands and molecules in Arabic, Darija and English, foreign brands, French typos, diseases to refuse), in both modes.
 
 ## Photo recognition
 
