@@ -28,6 +28,15 @@ MEDICINES_CSV = Path(os.environ.get(
     "MEDICINES_CSV", PROJECT_ROOT / "data" / "clean" / "medicaments.csv"))
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "").rstrip("/")
 
+# Photo recognition: a vision model reads the medicine box.
+# Without LLM_API_KEY the feature is off and the rest of the API works normally.
+# "fake" is for the tests and the end-to-end demo only: no network call.
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "gemini").strip().lower()
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "").strip()
+# Free tier Flash model (Pro models are paid only): https://ai.google.dev/gemini-api/docs/models
+LLM_MODEL = os.environ.get("LLM_MODEL", "").strip() or "gemini-3.8-flash"
+LLM_TIMEOUT_SECONDS = 30
+
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = 7
 JWT_MIN_SECRET_LENGTH = 32
