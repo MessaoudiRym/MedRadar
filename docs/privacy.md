@@ -12,6 +12,15 @@ Patients do not need an account.
 | Position sent with a search | Sort pharmacies by distance | Used for the answer, then forgotten. Only the nearest district may be kept (see above). |
 | Alerts (email, medicine, area) | Tell the patient when the medicine is back nearby | The position is rounded to about 1 km. At most 5 active alerts per email. |
 
+### Photos of medicine boxes
+
+| What happens | Details |
+| --- | --- |
+| The photo is sent to Google (Gemini API, free tier) | **Only to read the box**: brand name, active ingredient, dose and form. Before sending, it is reduced and its metadata (such as the GPS position) is removed. |
+| MedRadar does not keep it | The photo stays in memory for the time of the request: never written to disk, to the database or to the logs. Only an anonymous "recognition succeeded: yes / no" is kept, for statistics. |
+| Google may use it | Data sent to the Gemini API free tier may be used by Google to improve its services. |
+| Prescriptions are refused | This is why only medicine boxes are accepted. **Do not photograph your prescription**: it contains your name and your health information. When the model sees a prescription, MedRadar stops, searches nothing and sends nothing back. |
+
 ## Pharmacists
 
 | Data | Why |

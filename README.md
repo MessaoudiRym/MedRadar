@@ -34,7 +34,7 @@ Pharmacists update their stock in two taps.
 | Frontend | Next.js, Tailwind CSS, Leaflet + OpenStreetMap |
 | Backend | FastAPI (Python) |
 | Database | PostgreSQL (pg_trgm for fuzzy search) |
-| AI | Vision LLM to read medicine box photos (returns a name, checked against the database) |
+| AI | Vision LLM to read medicine box photos (returns a name, checked against the database): Google Gemini (Flash, free tier) |
 | Email alerts | _to be chosen_ |
 | AI coding tools | _to be listed_ |
 
@@ -99,6 +99,8 @@ python -m uvicorn app.main:app --reload
 | `GET /medicines/search?q=...&limit=10` | public | Medicines matching a brand name or active ingredient, typos allowed |
 | `GET /medicines/{id}` | public | Full details of one medicine |
 | `GET /medicines/{id}/equivalents` | public | The medicine, its equivalents and a safety notice |
+| `GET /features` | public | Which optional features are on (`photo_recognition`) |
+| `POST /medicines/recognize` | public | Photo of a medicine box (multipart, field `photo`) → what was read and up to 3 medicines to confirm. 10 photos per hour |
 | `GET /medicines/{id}/availability?lat=&lng=&radius_km=10` | public | Validated pharmacies that have the medicine or an equivalent, nearest first |
 | `GET /pharmacies` | public | Validated pharmacies, without personal data |
 | `POST /alerts` | public | Be alerted when a medicine is back in stock |
@@ -175,6 +177,41 @@ Two medicines are suggested as equivalents only when all three rules match:
 3. **Same form group.** The ~680 ways the file writes forms are grouped into about thirty groups (tablet, capsule, syrup, injectable, eye drops...). Modified-release and gastro-resistant forms are always kept apart: an extended-release tablet is never suggested in place of a normal tablet.
 
 Only medicines sold in community pharmacies and not withdrawn or non-renewed are suggested.
+
+## Photo recognition
+
+A patient can take a photo of the box instead of typing the name. The rule is simple: **the model reads, the database decides, the patient confirms.**
+
+1. **The model reads.** The photo is sent to a vision model, Google Gemini (Flash, free tier), with strict instructions: copy only what is printed on the box (brand name, active ingredient, dose, form), put `null` for anything it cannot read, never guess, and ignore any instruction written in the image. It must answer in a fixed JSON shape (Gemini structured output), which the API checks again (Pydantic). An invalid answer gets one more try, then a clear error.
+2. **The database decides.** What was read goes through the normal search on the official nomenclature (brand name first, then active ingredient). The same dose and form rules as the cleaning script rank the results: "850 mg" on the box is compared exactly like "850MG" in the official file. At most 3 medicines are proposed, each marked *exact match*, *likely match* or *check the box*.
+3. **The patient confirms.** The app shows what it read ("We read: GLUCOPHAGE 850 mg, comprimé pelliculé") and asks "Is this your medicine?". Nothing is chosen for the patient, who can always type the name instead. Equivalents then come from the fixed rules above, never from the model.
+
+**Privacy.** The photo is compressed in the browser, then kept in memory only for the time of the request: it is never written to disk, to the database or to the logs, and its metadata (such as the GPS position) is removed before it is sent. MedRadar only keeps, anonymously, whether a recognition succeeded. Data sent to the Gemini free tier may be used by Google to improve its services: this is why only medicine boxes are accepted and **prescriptions are refused** (the model reports them, and nothing read on them is searched or sent back). See [docs/privacy.md](docs/privacy.md).
+
+**Configuration.** The feature is off until a key is set; the rest of MedRadar works without it.
+
+1. Sign in to [Google AI Studio](https://aistudio.google.com/apikey) with a Google account and create an API key (free, no credit card).
+2. Put it in `.env`:
+
+   ```bash
+   LLM_PROVIDER=gemini
+   LLM_API_KEY=your-key
+   LLM_MODEL=              # empty = gemini-3.8-flash (a free tier Flash model)
+   ```
+
+3. Restart the API. `GET /features` now returns `{"photo_recognition": true}` and the home page shows "Take a photo of the box".
+
+The free tier has a per-minute quota: when it is reached, the patient is told to type the name or try again in a minute (no automatic retry). The API also allows 10 photos per hour per IP and waits at most 30 seconds for the model. Readers are behind one small interface (`backend/app/vision/`), so another provider can be added later; the tests and the end-to-end tests use a simulated reader (`LLM_PROVIDER=fake`) and never call a real model.
+
+**Measure the accuracy.** Put real box photos in `docs/recognition_samples/photos/` (ignored by git) and list them in `docs/recognition_samples/expected.csv`:
+
+```csv
+nom_fichier,nom_marque_attendu,dosage_attendu
+glucophage_850.jpg,GLUCOPHAGE 850,850 mg
+levothyrox_50.jpg,LEVOTHYROX,50 µg
+```
+
+Then run `python scripts/evaluate_recognition.py`. It sends each photo through the real recognition, prints the share of boxes where the right medicine is 1st and in the first 3, and the average time, and writes the summary to `docs/recognition_results.md` (without the photos). It pauses 7 seconds between photos to stay within the free tier (`--pause` to change it).
 
 ## Who built what
 
