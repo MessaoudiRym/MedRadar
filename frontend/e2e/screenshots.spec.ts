@@ -4,7 +4,7 @@
 import { type Browser, devices, expect, type Page, test } from "@playwright/test";
 
 import { DEMO_PHARMACIST, GLUCOPHAGE_850 } from "./config";
-import { login, readTestBox, search } from "./helpers";
+import { login, readTestBox, search, searchAndValidate } from "./helpers";
 
 const OUT = "../docs/screenshots";
 const SIZES = {
@@ -58,6 +58,15 @@ for (const size of ["desktop", "mobile"] as const) {
     await page.getByText("We read:").scrollIntoViewIfNeeded();
     await settle(page);
     await page.screenshot({ path: `${OUT}/photo-confirmation-${size}.png`, fullPage: size === "desktop" });
+  });
+
+  test(`search understood (${size})`, async ({ browser }) => {
+    const page = await open(browser, size);
+    await page.goto("/");
+    await searchAndValidate(page, "غلوكوفاج");
+    await expect(page.getByText("we understood:")).toBeVisible();
+    await settle(page);
+    await page.screenshot({ path: `${OUT}/search-understood-${size}.png`, fullPage: size === "desktop" });
   });
 
   test(`pharmacist dashboard (${size})`, async ({ browser }) => {
