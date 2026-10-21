@@ -197,11 +197,12 @@ A patient can take a photo of the box instead of typing the name. The rule is si
    LLM_PROVIDER=gemini
    LLM_API_KEY=your-key
    LLM_MODEL=              # empty = gemini-3.8-flash (a free tier Flash model)
+   LLM_FALLBACK_MODEL=     # empty = gemini-3.5-flash-lite, tried once if the main model is overloaded
    ```
 
 3. Restart the API. `GET /features` now returns `{"photo_recognition": true}` and the home page shows "Take a photo of the box".
 
-The free tier has a per-minute quota: when it is reached, the patient is told to type the name or try again in a minute (no automatic retry). The API also allows 10 photos per hour per IP and waits at most 30 seconds for the model. Readers are behind one small interface (`backend/app/vision/`), so another provider can be added later; the tests and the end-to-end tests use a simulated reader (`LLM_PROVIDER=fake`) and never call a real model.
+The free tier has a per-minute quota: when it is reached, the patient is told to type the name or try again in a minute (no automatic retry). When the main model is overloaded ("high demand", error 503), the fallback model is tried once; if it is overloaded too, the patient gets the same message. The API also allows 10 photos per hour per IP and waits at most 30 seconds for the model. Readers are behind one small interface (`backend/app/vision/`), so another provider can be added later; the tests and the end-to-end tests use a simulated reader (`LLM_PROVIDER=fake`) and never call a real model.
 
 **Measure the accuracy.** Put real box photos in `docs/recognition_samples/photos/` (ignored by git) and list them in `docs/recognition_samples/expected.csv`:
 

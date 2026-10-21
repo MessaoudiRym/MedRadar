@@ -18,7 +18,7 @@ from ..limiter import limiter
 from ..models import RecognitionAttempt
 from ..recognition import rank
 from ..schemas import Features, RecognitionResult
-from ..vision.base import BOX, QuotaExceeded, ReaderError, ReaderTimeout, read_box
+from ..vision.base import BOX, ProviderBusy, QuotaExceeded, ReaderError, ReaderTimeout, read_box
 
 logger = logging.getLogger("medradar")
 router = APIRouter(tags=["photo recognition"])
@@ -126,8 +126,8 @@ async def recognize(request: Request, db: Session = Depends(get_db)):
 
     try:
         reading = await run_in_threadpool(read_box, reader, image)
-    except QuotaExceeded:
-        logger.warning("Photo recognition: provider quota exceeded")
+    except (QuotaExceeded, ProviderBusy) as error:
+        logger.warning("Photo recognition: provider saturated (%s)", error)
         save_attempt(db, False)
         raise RecognitionFailed(503, "saturee", SATURATED) from None
     except ReaderTimeout:

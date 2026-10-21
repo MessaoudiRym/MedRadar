@@ -346,3 +346,59 @@ def test_gemini_asks_for_json_with_a_schema():
     assert reader.config.response_mime_type == "application/json"
     assert reader.config.response_json_schema == JSON_SCHEMA
     assert reader.config.temperature == 0
+
+
+def gemini_answering(monkeypatch, answers):
+    """A Gemini reader whose calls return or raise the given answer, per model."""
+    from app.vision.gemini import GeminiReader
+    reader = GeminiReader("test-key", "gemini-main", 30, "gemini-fallback")
+    calls = []
+
+    def answer(model, **kwargs):
+        calls.append(model)
+        result = answers[model]
+        if isinstance(result, Exception):
+            raise result
+        return type("Response", (), {"text": result})()
+    monkeypatch.setattr(reader.client.models, "generate_content", answer)
+    return reader, calls
+
+
+def overloaded():
+    from google.genai import errors
+    return errors.ServerError(503, {"error": {"code": 503, "status": "UNAVAILABLE",
+                                              "message": "high demand"}})
+
+
+def test_gemini_overloaded_uses_the_fallback_model_once(monkeypatch):
+    import json
+    reader, calls = gemini_answering(monkeypatch, {"gemini-main": overloaded(),
+                                                   "gemini-fallback": json.dumps(DEMO_ANSWER)})
+    assert json.loads(reader.read(photo())) == DEMO_ANSWER
+    assert calls == ["gemini-main", "gemini-fallback"]
+
+
+def test_gemini_both_overloaded_is_busy(monkeypatch):
+    from app.vision.base import ProviderBusy
+    reader, calls = gemini_answering(monkeypatch, {"gemini-main": overloaded(),
+                                                   "gemini-fallback": overloaded()})
+    with pytest.raises(ProviderBusy):
+        reader.read(photo())
+    assert calls == ["gemini-main", "gemini-fallback"]
+
+
+def test_gemini_quota_does_not_use_the_fallback(monkeypatch):
+    from google.genai import errors
+    quota = errors.ClientError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}})
+    reader, calls = gemini_answering(monkeypatch, {"gemini-main": quota, "gemini-fallback": "{}"})
+    with pytest.raises(QuotaExceeded):
+        reader.read(photo())
+    assert calls == ["gemini-main"]
+
+
+def test_provider_overloaded_shows_the_saturated_message(client, fake_reader):
+    from app.vision.base import ProviderBusy
+    fake_reader(ProviderBusy("overloaded"))
+    response = send(client, photo())
+    assert response.status_code == 503
+    assert response.json() == {"detail": recognition.SATURATED, "code": "saturee"}

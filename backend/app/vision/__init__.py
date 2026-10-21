@@ -3,7 +3,8 @@
 
 import logging
 
-from ..config import LLM_API_KEY, LLM_MODEL, LLM_PROVIDER, LLM_TIMEOUT_SECONDS
+from ..config import (LLM_API_KEY, LLM_FALLBACK_MODEL, LLM_MODEL, LLM_PROVIDER,
+                      LLM_TIMEOUT_SECONDS)
 from .base import VisionReader
 
 logger = logging.getLogger("medradar")
@@ -20,7 +21,7 @@ def make_reader() -> VisionReader | None:
         return None
     if LLM_PROVIDER == "gemini":
         from .gemini import GeminiReader
-        return GeminiReader(LLM_API_KEY, LLM_MODEL, LLM_TIMEOUT_SECONDS)
+        return GeminiReader(LLM_API_KEY, LLM_MODEL, LLM_TIMEOUT_SECONDS, LLM_FALLBACK_MODEL)
     logger.error("Photo recognition is off: unknown LLM_PROVIDER %r (supported: gemini).",
                  LLM_PROVIDER)
     return None

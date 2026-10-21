@@ -2,21 +2,27 @@
 
 Structured output (response_mime_type + response_json_schema) makes the model
 answer in the expected JSON shape; base.read_box still validates it.
+
+When the main model is overloaded (503 "high demand", frequent on the free
+tier), the fallback model is tried once. "Quota exceeded" (429) is never retried.
 """
 
 import httpx
 from google import genai
 from google.genai import errors, types
 
-from .base import (INSTRUCTIONS, JSON_SCHEMA, QuotaExceeded, ReaderTimeout,
+from .base import (INSTRUCTIONS, JSON_SCHEMA, ProviderBusy, QuotaExceeded, ReaderTimeout,
                    ReaderUnavailable)
+
+OVERLOADED = 503
 
 
 class GeminiReader:
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str, timeout_seconds: int):
+    def __init__(self, api_key: str, model: str, timeout_seconds: int, fallback_model: str = ""):
         self.model = model
+        self.models = [model] + ([fallback_model] if fallback_model and fallback_model != model else [])
         self.client = genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(
@@ -33,9 +39,17 @@ class GeminiReader:
         )
 
     def read(self, image_jpeg: bytes) -> str:
+        for model in self.models:
+            try:
+                return self._read_with(model, image_jpeg)
+            except ProviderBusy:
+                continue  # overloaded: try the fallback model once
+        raise ProviderBusy("Gemini overloaded")
+
+    def _read_with(self, model: str, image_jpeg: bytes) -> str:
         try:
             response = self.client.models.generate_content(
-                model=self.model,
+                model=model,
                 contents=[
                     types.Part.from_bytes(data=image_jpeg, mime_type="image/jpeg"),
                     "Copy what is printed on this image, as JSON.",
@@ -46,6 +60,8 @@ class GeminiReader:
         except errors.APIError as error:
             if error.code == 429:
                 raise QuotaExceeded("Gemini quota exceeded") from None
+            if error.code == OVERLOADED:
+                raise ProviderBusy(f"{model} overloaded") from None
             if error.code in (408, 504):
                 raise ReaderTimeout("Gemini timeout") from None
             raise ReaderUnavailable(f"Gemini error {error.code}") from None

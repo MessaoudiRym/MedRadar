@@ -35,6 +35,10 @@ LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "gemini").strip().lower()
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "").strip()
 # Free tier Flash model (Pro models are paid only): https://ai.google.dev/gemini-api/docs/models
 LLM_MODEL = os.environ.get("LLM_MODEL", "").strip() or "gemini-3.8-flash"
+# Tried once when the main model is overloaded (503); "none" to turn it off
+LLM_FALLBACK_MODEL = os.environ.get("LLM_FALLBACK_MODEL", "").strip() or "gemini-3.5-flash-lite"
+if LLM_FALLBACK_MODEL.lower() == "none":
+    LLM_FALLBACK_MODEL = ""
 LLM_TIMEOUT_SECONDS = 30
 
 JWT_ALGORITHM = "HS256"

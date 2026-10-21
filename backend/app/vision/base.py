@@ -101,6 +101,10 @@ class QuotaExceeded(ReaderError):
     """The provider refused the request: too many requests (free tier quota)."""
 
 
+class ProviderBusy(ReaderError):
+    """The provider is overloaded for a moment (503), even with the fallback model."""
+
+
 class ReaderTimeout(ReaderError):
     pass
 
@@ -120,7 +124,7 @@ class VisionReader(Protocol):
     def read(self, image_jpeg: bytes) -> str:
         """Send the image with INSTRUCTIONS; return the model's raw answer (JSON text).
 
-        Raises QuotaExceeded, ReaderTimeout or ReaderUnavailable.
+        Raises QuotaExceeded, ProviderBusy, ReaderTimeout or ReaderUnavailable.
         """
         ...
 
