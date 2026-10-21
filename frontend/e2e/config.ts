@@ -11,3 +11,6 @@ export const DEMO_PHARMACIST = { email: "pharmacien1@medradar.demo", password: D
 
 // Stable ids from scripts/clean_nomenclature.py
 export const GLUCOPHAGE_850 = "55c9557e1e81";
+
+// Drawn test image; the API's simulated reader "reads" GLUCOPHAGE 850 mg on any photo
+export const TEST_BOX_PHOTO = "e2e/fixtures/test-box.jpg";

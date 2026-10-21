@@ -3,7 +3,7 @@
 Used by frontend/playwright.config.ts. Each run:
   1. deletes and recreates backend/e2e.db (never the development database),
   2. runs the migrations, creates the admin and the demo data,
-  3. starts the API on port 8100.
+  3. starts the API on port 8100, with the simulated photo reader.
 
 Test credentials come from the environment set by the Playwright config.
 
@@ -29,6 +29,9 @@ def main():
         "DATABASE_URL": f"sqlite:///{DATABASE.as_posix()}",
         "JWT_SECRET": env.get("E2E_JWT_SECRET", "e2e-only-secret-" + "x" * 40),
         "FRONTEND_URL": env.get("E2E_FRONTEND_URL", "http://localhost:3100"),
+        # Photo recognition with the simulated reader: it always "reads" GLUCOPHAGE 850,
+        # and no photo is sent to a real model
+        "LLM_PROVIDER": "fake",
     })
     for name in ("ADMIN_EMAIL", "ADMIN_PASSWORD", "DEMO_PHARMACIST_PASSWORD"):
         if not env.get(name):
