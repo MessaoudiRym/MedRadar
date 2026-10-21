@@ -41,6 +41,14 @@ if LLM_FALLBACK_MODEL.lower() == "none":
     LLM_FALLBACK_MODEL = ""
 LLM_TIMEOUT_SECONDS = 30
 
+# Multilingual search: when the language model helps to understand a query.
+#   llm_first:   queries in Arabic, Darija, arabizi or English, and unsure French queries
+#   rules_first: only when the normal search and the transliteration rules are unsure
+ARABIC_SEARCH_MODES = ("llm_first", "rules_first")
+ARABIC_SEARCH_MODE = os.environ.get("ARABIC_SEARCH_MODE", "").strip().lower() or "llm_first"
+if ARABIC_SEARCH_MODE not in ARABIC_SEARCH_MODES:
+    raise RuntimeError(f"ARABIC_SEARCH_MODE must be one of: {', '.join(ARABIC_SEARCH_MODES)}")
+
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = 7
 JWT_MIN_SECRET_LENGTH = 32
