@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 
 import { SearchIcon } from "./icons";
-import { inputClass, Loading, Notice } from "./ui";
+import { buttonClass, inputClass, Loading, Notice } from "./ui";
 import { api, errorMessage } from "@/lib/api";
 import { formatDose } from "@/lib/format";
 import { formLabel, titleCase } from "@/lib/messages";
@@ -27,23 +27,30 @@ interface SearchBoxProps {
   size?: "lg" | "md";
   /** To focus the field from outside (e.g. "I'll type the name" after a photo) */
   inputRef?: React.Ref<HTMLInputElement>;
+  /** Text already searched (results page): no suggestions until it is changed */
+  initialQuery?: string;
 }
 
 /**
  * Search with suggestions while typing (accessible combobox).
- * The API tolerates typos: "glucofage" finds GLUCOPHAGE.
+ * The API tolerates typos ("glucofage" finds GLUCOPHAGE) and reads Arabic,
+ * Darija and English names. Suggestions never use the language model; Enter
+ * or the Search button opens the full search (/recherche), which may.
+ * With onSelect (pharmacist's list), Enter picks the first suggestion instead.
  */
 export function SearchBox({
   label = "Name of the medicine or active ingredient",
-  placeholder = "e.g. Glucophage or metformine",
+  placeholder = "Medicine name (French, Arabic, Darija…)",
   onSelect,
   size = "lg",
   inputRef,
+  initialQuery = "",
 }: SearchBoxProps) {
   const router = useRouter();
   const id = useId();
   const listId = `${id}-list`;
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
+  const [edited, setEdited] = useState(!initialQuery);
   const [results, setResults] = useState<Results>({ status: "idle" });
   const [active, setActive] = useState(-1);
   const [retry, setRetry] = useState(0);
@@ -51,7 +58,7 @@ export function SearchBox({
   const trimmed = query.trim();
 
   useEffect(() => {
-    if (trimmed.length < MIN_LENGTH) return;
+    if (!edited || trimmed.length < MIN_LENGTH) return;
     const controller = new AbortController();
     // Wait until the user stops typing, then cancel any older request
     const timer = setTimeout(() => {
@@ -72,9 +79,9 @@ export function SearchBox({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [trimmed, retry]);
+  }, [trimmed, retry, edited]);
 
-  const shown = trimmed.length >= MIN_LENGTH ? results : ({ status: "idle" } as Results);
+  const shown = edited && trimmed.length >= MIN_LENGTH ? results : ({ status: "idle" } as Results);
   const items = shown.status === "done" ? shown.items : [];
   const open = items.length > 0;
 
@@ -88,7 +95,21 @@ export function SearchBox({
     }
   }
 
+  /** Full search: the API may then use the language model (Arabic, Darija, English). */
+  function submit() {
+    if (trimmed.length < MIN_LENGTH) return;
+    setResults({ status: "idle" });
+    setEdited(false);
+    router.push(`/recherche?q=${encodeURIComponent(trimmed)}`);
+  }
+
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter" && !onSelect) {
+      event.preventDefault();
+      if (open && active >= 0) choose(items[active]);
+      else submit();
+      return;
+    }
     if (!open) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -109,27 +130,42 @@ export function SearchBox({
       <label htmlFor={`${id}-input`} className={`block font-bold ${size === "lg" ? "text-lg" : ""}`}>
         {label}
       </label>
-      <div className="relative">
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-muted" />
-        <input
-          ref={inputRef}
-          id={`${id}-input`}
-          type="search"
-          role="combobox"
-          aria-expanded={open}
-          aria-controls={listId}
-          aria-autocomplete="list"
-          aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="search"
-          value={query}
-          placeholder={placeholder}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={onKeyDown}
-          className={`${inputClass} pl-13 ${size === "lg" ? "min-h-15 text-lg shadow-sm" : ""}`}
-        />
+      <div className={onSelect ? "" : "flex gap-2"}>
+        <div className="relative flex-1">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-muted" />
+          <input
+            ref={inputRef}
+            id={`${id}-input`}
+            type="search"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="search"
+            value={query}
+            placeholder={placeholder}
+            dir="auto"
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setEdited(true);
+            }}
+            onKeyDown={onKeyDown}
+            className={`${inputClass} pl-13 ${size === "lg" ? "min-h-15 text-lg shadow-sm" : ""}`}
+          />
+        </div>
+        {!onSelect && (
+          <button
+            type="button"
+            onClick={submit}
+            className={buttonClass("primary", size === "lg" ? "lg" : "md", "shrink-0")}
+          >
+            Search
+          </button>
+        )}
       </div>
 
       <div aria-live="polite" className="sr-only">
