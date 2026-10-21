@@ -27,3 +27,6 @@ Thumbs.db
 # Local databases
 *.db
 *.db-journal
+
+# Real photos for scripts/evaluate_recognition.py: never committed
+docs/recognition_samples/photos/

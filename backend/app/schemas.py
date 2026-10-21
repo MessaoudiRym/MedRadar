@@ -129,6 +129,32 @@ class Equivalents(BaseModel):
 
 
 # --------------------------------------------------------------------------
+# Photo recognition
+# --------------------------------------------------------------------------
+
+class Features(BaseModel):
+    photo_recognition: bool
+
+
+class TextRead(BaseModel):
+    """What the model read on the box, shown to the patient as is."""
+    nom_marque: str | None
+    dci: str | None
+    dosage: str | None
+    forme: str | None
+
+
+class RecognizedMedicine(SearchResult):
+    correspondance: Literal["exacte", "probable", "à vérifier"]
+
+
+class RecognitionResult(BaseModel):
+    texte_lu: TextRead
+    resultats: list[RecognizedMedicine]
+    message: str | None
+
+
+# --------------------------------------------------------------------------
 # Accounts
 # --------------------------------------------------------------------------
 

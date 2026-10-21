@@ -41,6 +41,23 @@ export interface Equivalents {
   notice: string;
 }
 
+export interface Features {
+  photo_recognition: boolean;
+}
+
+export type Correspondence = "exacte" | "probable" | "à vérifier";
+
+export interface RecognizedMedicine extends MedicineSummary {
+  correspondance: Correspondence;
+}
+
+export interface Recognition {
+  /** What the model read on the box, as printed */
+  texte_lu: { nom_marque: string | null; dci: string | null; dosage: string | null; forme: string | null };
+  resultats: RecognizedMedicine[];
+  message: string | null;
+}
+
 export interface PublicPharmacy {
   id: number;
   nom: string;

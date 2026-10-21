@@ -16,6 +16,8 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     public fieldErrors: Record<string, string> = {},
+    /** Machine-readable reason sent by some routes, e.g. "ordonnance" */
+    public code: string | null = null,
   ) {
     super(message);
     this.name = "ApiError";
@@ -31,10 +33,12 @@ export const NETWORK_ERROR =
 
 interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
+  /** Sent as JSON, or as multipart when it is a FormData (file upload) */
   body?: unknown;
   token?: string | null;
   query?: Record<string, string | number | undefined | null>;
   signal?: AbortSignal;
+  timeoutMs?: number;
 }
 
 interface ValidationItem {
@@ -48,11 +52,13 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
   }
 
+  const isForm = options.body instanceof FormData;
   const headers: Record<string, string> = { Accept: "application/json" };
-  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  // For a FormData, the browser sets the multipart Content-Type itself
+  if (options.body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (options.token) headers.Authorization = `Bearer ${options.token}`;
 
-  const timeout = AbortSignal.timeout(TIMEOUT_MS);
+  const timeout = AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS);
   const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
 
   let response: Response;
@@ -60,7 +66,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     response = await fetch(url, {
       method: options.method ?? "GET",
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: isForm ? (options.body as FormData) : options.body === undefined ? undefined : JSON.stringify(options.body),
       signal,
     });
   } catch (error) {
@@ -83,6 +89,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
 function toApiError(status: number, data: unknown): ApiError {
   const detail = (data as { detail?: unknown } | null)?.detail;
+  const code = (data as { code?: unknown } | null)?.code;
 
   // 422: a list of { loc, msg } — keep one message per field
   if (Array.isArray(detail)) {
@@ -95,7 +102,8 @@ function toApiError(status: number, data: unknown): ApiError {
     return new ApiError(status, first ?? "Some information is not valid.", fieldErrors);
   }
 
-  if (typeof detail === "string") return new ApiError(status, translateApiMessage(detail));
+  if (typeof detail === "string")
+    return new ApiError(status, translateApiMessage(detail), {}, typeof code === "string" ? code : null);
   if (status >= 500) return new ApiError(status, "Something went wrong on our side. Please try again.");
   return new ApiError(status, "Something went wrong. Please try again.");
 }

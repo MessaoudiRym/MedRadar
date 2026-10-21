@@ -11,5 +11,9 @@ PyJWT>=2.8
 slowapi>=0.1.9
 email-validator>=2.1
 python-dotenv>=1.0
+# Photo recognition: read the upload, prepare the image, Google Gemini SDK
+python-multipart>=0.0.20
+pillow>=10.0
+google-genai>=2.30
 pytest>=8.0
 httpx>=0.27

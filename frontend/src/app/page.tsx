@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ArrowRightIcon } from "@/components/icons";
-import { SearchBox } from "@/components/SearchBox";
+import { HomeSearch } from "@/components/HomeSearch";
 import { EXAMPLES } from "@/lib/examples";
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ export default function Home() {
           <span className="block text-brand">Find an equivalent, or a pharmacy that has it.</span>
         </h1>
 
-        <SearchBox />
+        <HomeSearch />
 
         <div className="space-y-2">
           <p className="font-semibold text-muted">Try:</p>
