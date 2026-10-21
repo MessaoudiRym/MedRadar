@@ -18,7 +18,7 @@ Expected result (column resultat_attendu):
 
 Uses LLM_API_KEY from .env (without it, only the rules are measured). Each
 mode starts with an empty cache. On the Gemini free tier, keep the pause
-after each call to the model (default 6 s).
+after each call to the model (default 12 s): the quota is counted per minute.
 
 Usage (from the project root):
     python scripts/evaluate_multilingual.py
@@ -27,6 +27,7 @@ Usage (from the project root):
 
 import argparse
 import csv
+import logging
 import os
 import sys
 import tempfile
@@ -68,6 +69,22 @@ CATEGORIES = {
 }
 
 
+class ModelErrors(logging.Handler):
+    """Counts the searches where the model failed and the rules were used."""
+
+    def __init__(self):
+        super().__init__(logging.WARNING)
+        self.count = 0
+
+    def emit(self, record):
+        if "rules used" in record.getMessage():
+            self.count += 1
+
+
+MODEL_ERRORS = ModelErrors()
+logging.getLogger("medradar").addHandler(MODEL_ERRORS)
+
+
 def matches(result, expected):
     brand = normalize(result["nom_marque"])
     if brand.startswith(normalize(expected)):
@@ -96,14 +113,17 @@ def run_mode(client, rows, mode, pause):
     for row in rows:
         limiter.reset()  # the 20 calls per hour limit is for patients, not for this measure
         calls_before = getattr(interpreter, "calls", 0)
+        errors_before = MODEL_ERRORS.count
         start = time.perf_counter()
         response = client.get("/medicines/search",
                               params={"q": row["requete"], "interpret": "true", "limit": 10})
         seconds = time.perf_counter() - start
         body = response.json()
         called = interpreter is not None and getattr(interpreter, "calls", 0) > calls_before
+        model_failed = MODEL_ERRORS.count > errors_before
         outcome = {
             "row": row, "status": response.status_code, "seconds": seconds, "called": called,
+            "model_failed": model_failed,
             "position": position(body, row["resultat_attendu"]) if response.status_code == 200 else None,
             "method": body.get("interpretation", {}).get("methode", "-"),
             "understood": body.get("interpretation", {}).get("compris_comme"),
@@ -112,7 +132,8 @@ def run_mode(client, rows, mode, pause):
         outcomes.append(outcome)
         mark = {1: "1st", None: "FAIL"}.get(outcome["position"], f"#{outcome['position']}")
         print(f"[{mode}] {mark:<5} {seconds:4.1f}s {outcome['method']:<9} "
-              f"{row['categorie']:<17} {row['requete']}")
+              f"{row['categorie']:<17} {row['requete']}"
+              + ("   (model failed: rules used)" if model_failed else ""))
         if called and pause:
             time.sleep(pause)
     return outcomes
@@ -133,6 +154,7 @@ def summary(outcomes):
         "refusals": len(refusals), "refused": refused,
         "seconds": sum(o["seconds"] for o in outcomes) / total if total else 0,
         "calls": sum(1 for o in outcomes if o["called"]),
+        "model_failed": sum(1 for o in outcomes if o["model_failed"]),
         "errors": sum(1 for o in outcomes if o["status"] != 200),
     }
 
@@ -161,6 +183,8 @@ def write_report(results, model):
         lambda s: f"**{percent(s['refused'], s['refusals'])}** ({s['refused']}/{s['refusals']})")
     row("Average response time", lambda s: f"{s['seconds']:.2f} s")
     row("Calls to the model", lambda s: str(s["calls"]))
+    row("Model unavailable (quota, overloaded, slow): rules used instead",
+        lambda s: str(s["model_failed"]))
     row("Server errors", lambda s: str(s["errors"]))
 
     lines += ["", "## By category", "",
@@ -196,7 +220,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--modes", nargs="+", default=["llm_first", "rules_first"],
                         choices=["llm_first", "rules_first"])
-    parser.add_argument("--pause", type=float, default=6.0,
+    parser.add_argument("--pause", type=float, default=12.0,
                         help="seconds to wait after each call to the model (free tier)")
     parser.add_argument("--limit", type=int, help="only the first N queries")
     args = parser.parse_args()

@@ -131,6 +131,7 @@ class GeminiInterpreter:
         from .gemini import get_client, json_config, models_with_fallback
         self.models = models_with_fallback(model, fallback_model)
         self.client = get_client(api_key)
+        self.calls = 0  # read by scripts/evaluate_multilingual.py
         # Low thinking: recognising a name is quick, and the patient is waiting
         # ("minimal" is refused by gemini-3.8-flash)
         self.config = json_config(INSTRUCTIONS, JSON_SCHEMA, timeout_seconds,
@@ -138,4 +139,5 @@ class GeminiInterpreter:
 
     def interpret(self, query: str) -> str:
         from .gemini import generate
+        self.calls += 1
         return generate(self.client, self.models, [f"Patient query: {query}"], self.config)
