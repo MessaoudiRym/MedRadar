@@ -44,7 +44,8 @@ from .transliteration import key_similarity
 
 logger = logging.getLogger("medradar")
 
-CONFIDENT = 80          # a result at least this sure (0-100) needs no help from the model
+CONFIDENT = 90          # a result at least this sure (0-100) needs no help from the model
+                        # ("glucofage" -> GLUCOPHAGE 96 is sure; "albuterol" -> LUTEROL 88 is not)
 RECOGNIZED = 90         # next to a disease word, a medicine name must be this sure
 # For a Latin query that is not arabizi, the normal search already tolerates typos:
 # a transliteration match is "sure" only when nearly perfect ("glucofaj", "amlour"),
@@ -215,7 +216,10 @@ class SmartSearch:
 
     def interpret(self, query: Query, db, ip, interpreter):
         """(QueryReading, "cache" or "llm"), or (None, None): the rules are used instead."""
-        key = query.cleaned[:200]
+        # Only the name (and dose) is sent: "dwa ta3 glucophage" -> "glucophage". Clearer
+        # for the model, and the same cache entry for every way of asking
+        text = " ".join(query.name_words + ([query.dose] if query.dose else []))
+        key = text[:200]
         cached = self.read_cache(db, key)
         if cached is not None:
             return cached, "cache"
@@ -224,7 +228,7 @@ class SmartSearch:
         if not limiter.limiter.hit(LLM_RATE_LIMIT, "query-interpreter", ip):
             logger.warning("Search: 20 model calls per hour reached for this IP, rules used")
             return None, None
-        future = _executor.submit(interpret_query, interpreter, query.cleaned)
+        future = _executor.submit(interpret_query, interpreter, text)
         try:
             reading = future.result(timeout=LLM_DEADLINE_SECONDS)
         except FutureTimeout:
@@ -247,11 +251,12 @@ class SmartSearch:
         dose = query.dose or grounded_dose(reading.dosage, query)
 
         # Safety net 3: only names that sound like what the patient typed
-        named, spelling = [], None
+        named, spelling, typed_but_absent = [], None, False
         for candidate in reading.orthographes:
             if key_similarity(candidate, query.name) < GROUNDED:
                 logger.info("Search: a name proposed by the model was ignored (not in the query)")
                 continue
+            typed_but_absent = True
             hits = [Hit(m, s, "llm")
                     for m, s in self.index.search(candidate, limit * 3, with_scores=True)
                     if s >= CONFIDENT]
@@ -259,20 +264,26 @@ class SmartSearch:
                 named = merge(named, hits)
                 spelling = spelling or candidate
 
+        # A brand the patient typed, spelled back by the model, but not sold in Algeria
+        # (Lipitor, Zocor): handled as a foreign brand
+        kind = reading.type
+        if kind == BRAND and not named and typed_but_absent:
+            kind = FOREIGN_BRAND
+
         molecule = reading.molecule_fr
         molecule_grounded = bool(molecule) and key_similarity(molecule, query.name) >= GROUNDED
         molecule_allowed = bool(molecule) and (molecule_grounded or (
-            reading.type in (MOLECULE, FOREIGN_BRAND) and not rules_sure
+            kind in (MOLECULE, FOREIGN_BRAND) and not rules_sure
             and len(query.name_words) <= MAX_UNGROUNDED_WORDS))
 
-        if named and reading.type != MOLECULE:
+        if named and kind != MOLECULE:
             # A brand sold in Algeria (also when the model thought it was foreign)
             hits = order_by_dose(named, dose)[:limit]
             exact = hits[0].score >= 100
             return self.answer(query, hits, method, BRAND, self.understood(spelling, dose, hits),
                                a_verifier=not exact)
 
-        if reading.type == MOLECULE and (named or molecule_allowed):
+        if kind == MOLECULE and (named or molecule_allowed):
             hits = merge(named, self.with_molecule(molecule) if molecule_allowed else [])
             if hits:
                 hits = order_by_dose(hits, dose)[:limit]
@@ -280,7 +291,7 @@ class SmartSearch:
                 return self.answer(query, hits, method, MOLECULE, self.understood(name, dose, hits),
                                    a_verifier=not (molecule_grounded or named))
 
-        if reading.type in (FOREIGN_BRAND, BRAND) and molecule_allowed:
+        if kind == FOREIGN_BRAND and molecule_allowed:
             hits = order_by_dose(self.with_molecule(molecule), dose)[:limit]
             if hits:
                 message = FOREIGN_MESSAGE.format(query=query.original.strip(), molecule=molecule)

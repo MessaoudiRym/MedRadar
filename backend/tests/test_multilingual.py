@@ -319,3 +319,28 @@ def test_access_logs_hide_the_search_text():
                                 "1.1", 200), None)
     HideQueryStrings().filter(record)
     assert record.getMessage() == '127.0.0.1:5000 - "GET /medicines/search?… HTTP/1.1" 200'
+
+
+def test_brand_not_sold_in_algeria_is_handled_as_foreign(client, fake_interpreter):
+    # The model says "brand" (Lipitor is one), but it is not in the nomenclature
+    fake_interpreter(answer("nom_marque", ["LIPITOR"], "ATORVASTATINE", language="en"))
+    body = search(client, "Lipitor")
+    assert body["results"]
+    assert all("ATORVASTATINE" in r["molecule"] for r in body["results"])
+    assert body["interpretation"]["type"] == "marque_etrangere"
+    assert body["interpretation"]["a_verifier"] is True
+    assert body["message"].startswith("« Lipitor » n'est pas vendu en Algérie")
+
+
+def test_only_the_name_is_sent_to_the_model(client, fake_interpreter):
+    interpreter = fake_interpreter()
+    search(client, "دوا تاع غلوكوفاج")
+    search(client, "غلوكوفاج")
+    assert interpreter.queries == ["غلوكوفاج"]  # once: same cache entry
+
+
+def test_unsure_french_typo_asks_the_model(client, fake_interpreter):
+    interpreter = fake_interpreter(answer("molecule", ["ALBUTEROL"], "SALBUTAMOL", language="en"))
+    body = search(client, "albuterol")
+    assert interpreter.calls == 1
+    assert body["results"] and all("SALBUTAMOL" in r["molecule"] for r in body["results"])
