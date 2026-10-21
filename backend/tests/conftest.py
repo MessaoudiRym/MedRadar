@@ -15,6 +15,10 @@ _TMP_DIR = tempfile.mkdtemp(prefix="medradar-test-")
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TMP_DIR, 'test.db').as_posix()}"
 os.environ["JWT_SECRET"] = "test-only-secret-" + "x" * 40
 os.environ.pop("FRONTEND_URL", None)
+# Photo recognition off by default; tests that need it use the fake_reader fixture.
+# Empty values also stop the .env file from setting a real key.
+os.environ["LLM_PROVIDER"] = "gemini"
+os.environ["LLM_API_KEY"] = ""
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
@@ -132,6 +136,19 @@ def validated_pharmacist(client, admin_headers):
         assert response.status_code == 200, response.text
         return headers, pharmacy_id
     return make
+
+
+@pytest.fixture
+def fake_reader(client):
+    """Install a simulated vision reader (no call to a real model); returns a setter."""
+    from app.vision.fake import FakeReader
+
+    def install(*answers):
+        reader = FakeReader(*answers)
+        client.app.state.reader = reader
+        return reader
+    yield install
+    client.app.state.reader = None
 
 
 @pytest.fixture
