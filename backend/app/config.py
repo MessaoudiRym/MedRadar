@@ -40,6 +40,10 @@ LLM_FALLBACK_MODEL = os.environ.get("LLM_FALLBACK_MODEL", "").strip() or "gemini
 if LLM_FALLBACK_MODEL.lower() == "none":
     LLM_FALLBACK_MODEL = ""
 LLM_TIMEOUT_SECONDS = 30
+# Model that understands search queries. A Flash-Lite model by default: answers in
+# about 1 s, and the free tier of gemini-3.8-flash only allows 20 requests a day
+# (measured October 2026), far too few for a search box. LLM_MODEL is its fallback.
+LLM_SEARCH_MODEL = os.environ.get("LLM_SEARCH_MODEL", "").strip() or "gemini-3.5-flash-lite"
 
 # Multilingual search: when the language model helps to understand a query.
 #   llm_first:   queries in Arabic, Darija, arabizi or English, and unsure French queries

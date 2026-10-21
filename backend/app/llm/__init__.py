@@ -6,7 +6,7 @@ interpreter.QueryInterpreter), then add it to make_interpreter().
 
 import logging
 
-from ..config import LLM_API_KEY, LLM_FALLBACK_MODEL, LLM_MODEL, LLM_PROVIDER
+from ..config import LLM_API_KEY, LLM_MODEL, LLM_PROVIDER, LLM_SEARCH_MODEL
 from .interpreter import QueryInterpreter
 
 logger = logging.getLogger("medradar")
@@ -27,7 +27,7 @@ def make_interpreter() -> QueryInterpreter | None:
         return None
     if LLM_PROVIDER == "gemini":
         from .interpreter import GeminiInterpreter
-        return GeminiInterpreter(LLM_API_KEY, LLM_MODEL, INTERPRETER_TIMEOUT_SECONDS,
-                                 LLM_FALLBACK_MODEL)
+        return GeminiInterpreter(LLM_API_KEY, LLM_SEARCH_MODEL, INTERPRETER_TIMEOUT_SECONDS,
+                                 fallback_model=LLM_MODEL)
     logger.error("Multilingual search uses rules only: unknown LLM_PROVIDER %r.", LLM_PROVIDER)
     return None
