@@ -80,13 +80,16 @@ class Hit:
 
 
 def merge(*lists):
-    """Best score per medicine, best first (stable: earlier lists win ties)."""
+    """Best score per medicine, best first. A medicine found by several lists keeps
+    the source of the first one (the normal search) and the best score."""
     best = {}
     for hits in lists:
         for hit in hits:
             current = best.get(hit.medicine["id"])
-            if current is None or hit.score > current.score:
+            if current is None:
                 best[hit.medicine["id"]] = hit
+            elif hit.score > current.score:
+                best[hit.medicine["id"]] = Hit(current.medicine, hit.score, current.source)
     return sorted(best.values(), key=lambda h: -h.score)
 
 
@@ -147,8 +150,9 @@ class SmartSearch:
         """Normal search, then the transliteration rules when they can help."""
         found = [Hit(m, s, "search")
                  for m, s in self.index.search(query.name, limit, with_scores=True)]
-        sure = found and found[0].score >= CONFIDENT
-        if query.language in ARABIC_LIKE or not sure:
+        exact = found and found[0].score >= 100
+        # A typo ("levotirox"): the sound key tells LEVOTHYROX from LEVOTIRON
+        if query.language in ARABIC_LIKE or not exact:
             by_sound = self.phonetic.search_scored(query.name, limit, prefix)
             if query.language not in ARABIC_LIKE:
                 by_sound = [(m, sc if sc >= LATIN_RULES_SURE else min(sc, CONFIDENT - 1))
