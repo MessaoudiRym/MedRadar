@@ -57,6 +57,30 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-2xl font-bold">Searches in Arabic, Darija or English</h2>
+        <ul className="list-disc space-y-2 pl-6">
+          <li>
+            When you <strong>validate</strong> a search (Enter or the Search button) written in Arabic, Darija or
+            English, or a French search that MedRadar is unsure about, the text is sent to{" "}
+            <strong>Google (Gemini API, free tier) only to understand the name of the medicine</strong>. Suggestions
+            shown while you type are never sent.
+          </li>
+          <li>
+            <strong>No personal data</strong> is sent: only the words of the search. No name, no account, no IP
+            address, no position.
+          </li>
+          <li>
+            What was understood is kept 30 days, so the same search is never sent twice, without anything that
+            links it to you.
+          </li>
+          <li>
+            <strong>Google may use it</strong> to improve its services, as data sent to the free tier of the Gemini
+            API can be. Do not type personal information in the search.
+          </li>
+        </ul>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-2xl font-bold">Pharmacists</h2>
         <ul className="list-disc space-y-2 pl-6">
           <li>
