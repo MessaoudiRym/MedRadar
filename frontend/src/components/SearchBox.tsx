@@ -25,6 +25,8 @@ interface SearchBoxProps {
   /** Called with the chosen medicine. Without it, the medicine page opens. */
   onSelect?: (medicine: MedicineSummary) => void;
   size?: "lg" | "md";
+  /** To focus the field from outside (e.g. "I'll type the name" after a photo) */
+  inputRef?: React.Ref<HTMLInputElement>;
 }
 
 /**
@@ -36,6 +38,7 @@ export function SearchBox({
   placeholder = "e.g. Glucophage or metformine",
   onSelect,
   size = "lg",
+  inputRef,
 }: SearchBoxProps) {
   const router = useRouter();
   const id = useId();
@@ -109,6 +112,7 @@ export function SearchBox({
       <div className="relative">
         <SearchIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-muted" />
         <input
+          ref={inputRef}
           id={`${id}-input`}
           type="search"
           role="combobox"
