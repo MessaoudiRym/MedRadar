@@ -6,20 +6,17 @@ searched in the official nomenclature (app/recognition.py), and the patient
 confirms the medicine.
 """
 
-import logging
 from typing import Annotated, Literal, Protocol
 
-from pydantic import (BaseModel, BeforeValidator, ConfigDict, StrictBool, StringConstraints,
-                      ValidationError)
+from pydantic import BaseModel, BeforeValidator, ConfigDict, StrictBool, StringConstraints
 
-logger = logging.getLogger("medradar")
+from ..llm.errors import (InvalidAnswer, LLMError, LLMTimeout, LLMUnavailable,  # noqa: F401
+                          ProviderBusy, QuotaExceeded)
+from ..llm.structured import ask_validated
 
 BOX = "boite_medicament"
 PRESCRIPTION = "ordonnance"
 OTHER = "autre"
-
-# Invalid JSON from the model: one more try, then a clean error
-RETRIES_ON_INVALID_ANSWER = 1
 
 INSTRUCTIONS = """\
 You read photos of medicine boxes for MedRadar, a medicine search service in Algeria.
@@ -93,28 +90,10 @@ class BoxReading(BaseModel):
     lisible: StrictBool
 
 
-class ReaderError(Exception):
-    """The photo could not be read; the message is for the logs, never for the client."""
-
-
-class QuotaExceeded(ReaderError):
-    """The provider refused the request: too many requests (free tier quota)."""
-
-
-class ProviderBusy(ReaderError):
-    """The provider is overloaded for a moment (503), even with the fallback model."""
-
-
-class ReaderTimeout(ReaderError):
-    pass
-
-
-class InvalidAnswer(ReaderError):
-    """The model did not answer with the expected JSON, even after a new try."""
-
-
-class ReaderUnavailable(ReaderError):
-    """Any other provider error (network, key refused, server error)."""
+# Provider errors are shared with the other features (app/llm/errors.py)
+ReaderError = LLMError
+ReaderTimeout = LLMTimeout
+ReaderUnavailable = LLMUnavailable
 
 
 class VisionReader(Protocol):
@@ -134,11 +113,4 @@ def read_box(reader: VisionReader, image_jpeg: bytes) -> BoxReading:
 
     Quota and timeout errors are never retried: the patient is told at once.
     """
-    for attempt in range(1 + RETRIES_ON_INVALID_ANSWER):
-        raw = reader.read(image_jpeg)
-        try:
-            return BoxReading.model_validate_json(raw)
-        except ValidationError:
-            # Never log the answer itself: it is text read from a patient's photo
-            logger.warning("Vision reader %s: invalid answer (attempt %d)", reader.name, attempt + 1)
-    raise InvalidAnswer("no valid answer from the vision model")
+    return ask_validated(lambda: reader.read(image_jpeg), BoxReading, f"Vision reader {reader.name}")
