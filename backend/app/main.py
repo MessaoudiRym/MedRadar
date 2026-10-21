@@ -27,6 +27,20 @@ from .vision import make_reader
 logger = logging.getLogger("medradar")
 
 
+class HideQueryStrings(logging.Filter):
+    """Access logs keep the path, never the parameters: searches (q=...) and
+    positions (lat=, lng=) are personal and are not written in the logs."""
+
+    def filter(self, record):
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str) and "?" in args[2]:
+            record.args = (*args[:2], args[2].split("?", 1)[0] + "?…", *args[3:])
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(HideQueryStrings())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     jwt_secret()  # refuse to start without a proper secret

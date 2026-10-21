@@ -307,3 +307,15 @@ def test_results_keep_the_usual_fields(client, fake_interpreter):
                                        "forme_groupe", "nb_equivalents"}
     assert set(body["interpretation"]) == {"requete_originale", "langue_detectee", "methode",
                                            "compris_comme", "type", "a_verifier"}
+
+
+def test_access_logs_hide_the_search_text():
+    import logging
+
+    from app.main import HideQueryStrings
+    # The format of uvicorn's access log: client, method, path, HTTP version, status
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
+                               ("127.0.0.1:5000", "GET", "/medicines/search?q=%D8%BA&interpret=true",
+                                "1.1", 200), None)
+    HideQueryStrings().filter(record)
+    assert record.getMessage() == '127.0.0.1:5000 - "GET /medicines/search?… HTTP/1.1" 200'
