@@ -95,6 +95,23 @@ class SearchResult(BaseModel):
     nb_equivalents: int
 
 
+class SearchInterpretation(BaseModel):
+    """How a validated search (interpret=true) was understood."""
+    requete_originale: str
+    langue_detectee: Literal["fr", "ar", "darija", "arabizi", "en"]
+    methode: Literal["recherche", "regles", "llm", "cache"]
+    compris_comme: str | None
+    type: Literal["nom_marque", "molecule", "marque_etrangere", "maladie_ou_symptome",
+                  "inconnu"] | None
+    a_verifier: bool
+
+
+class SmartSearchResult(BaseModel):
+    results: list[SearchResult]
+    interpretation: SearchInterpretation
+    message: str | None
+
+
 class Medicine(BaseModel):
     id: str
     num_enregistrement: str

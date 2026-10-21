@@ -13,12 +13,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
-from .config import FRONTEND_URL, jwt_secret
+from .config import ARABIC_SEARCH_MODE, FRONTEND_URL, jwt_secret
 from .data import load_store
 from .limiter import limiter
 from .routers import admin, auth, medicines, pharmacist, public, recognition
 from .routers.recognition import RecognitionFailed
+from .llm import make_interpreter
 from .search import SearchIndex
+from .smart_search import SmartSearch
+from .transliteration import PhoneticIndex
 from .vision import make_reader
 
 logger = logging.getLogger("medradar")
@@ -30,6 +33,9 @@ async def lifespan(app: FastAPI):
     store = load_store()  # read the CSV once, kept in memory
     app.state.store = store
     app.state.index = SearchIndex(store.records)
+    app.state.smart_search = SmartSearch(store, app.state.index, PhoneticIndex(app.state.index))
+    app.state.interpreter = make_interpreter()  # None: the search uses rules only
+    app.state.search_mode = ARABIC_SEARCH_MODE
     app.state.reader = make_reader()  # None: photo recognition is off
     yield
 
@@ -38,7 +44,7 @@ app = FastAPI(
     title="MedRadar API",
     description="Find registered equivalents of an out-of-stock medicine, "
                 "from the Algerian national nomenclature, and pharmacies that have it.",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 app.state.limiter = limiter
