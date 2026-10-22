@@ -1,0 +1,70 @@
+requete,langue,categorie,resultat_attendu
+غلوكوفاج,ar,marque_arabe,GLUCOPHAGE
+ليفوتيروكس,ar,marque_arabe,LEVOTHYROX
+أملور,ar,marque_arabe,AMLOR
+دياميكرون,ar,marque_arabe,DIAMICRON
+تيغريتول,ar,marque_arabe,TEGRETOL
+دوليبران,ar,marque_arabe,DOLIPRANE
+أوغمنتين,ar,marque_arabe,AUGMENTIN
+طاهور,ar,marque_arabe,TAHOR
+ديباكين,ar,marque_arabe,DEPAKINE
+كوزار,ar,marque_arabe,COZZAR
+كارديجيك,ar,marque_arabe,KARDEGIC
+إنكسيوم,ar,marque_arabe,INEXIUM
+فولتارين,ar,marque_arabe,VOLTARENE
+سمكتا,ar,marque_arabe,SMECTA
+كلاموكسيل,ar,marque_arabe,CLAMOXYL
+فلاجيل,ar,marque_arabe,FLAGYL
+dwa ta3 glucophage,arabizi,darija_arabizi,GLUCOPHAGE
+glucofaj 850,arabizi,darija_arabizi,GLUCOPHAGE 850
+dwa ta3 levotirox,arabizi,darija_arabizi,LEVOTHYROX
+kayen amlor,arabizi,darija_arabizi,AMLOR
+dwa diamicron,arabizi,darija_arabizi,DIAMICRON
+wach kayen doliprane,arabizi,darija_arabizi,DOLIPRANE
+3andkom tegretol,arabizi,darija_arabizi,TEGRETOL
+دوا تاع طاهور,darija,darija_arabizi,TAHOR
+تاع دوليبران,darija,darija_arabizi,DOLIPRANE
+kardijik,arabizi,darija_arabizi,KARDEGIC
+metformin,en,molecule_anglais,METFORMINE
+acetaminophen,en,molecule_anglais,PARACETAMOL
+amoxicillin,en,molecule_anglais,AMOXICILLINE
+atorvastatin,en,molecule_anglais,ATORVASTATINE
+ibuprofen,en,molecule_anglais,IBUPROFENE
+levothyroxine sodium,en,molecule_anglais,LEVOTHYROXINE
+amlodipine besylate,en,molecule_anglais,AMLODIPINE
+albuterol,en,molecule_anglais,SALBUTAMOL
+ميتفورمين,ar,molecule_arabe,METFORMINE
+باراسيتامول,ar,molecule_arabe,PARACETAMOL
+أموكسيسيلين,ar,molecule_arabe,AMOXICILLINE
+إيبوبروفين,ar,molecule_arabe,IBUPROFENE
+أملوديبين,ar,molecule_arabe,AMLODIPINE
+Tylenol,en,marque_etrangere,PARACETAMOL
+Advil,en,marque_etrangere,IBUPROFENE
+Lipitor,en,marque_etrangere,ATORVASTATINE
+Norvasc,en,marque_etrangere,AMLODIPINE
+Synthroid,en,marque_etrangere,LEVOTHYROXINE
+Zocor,en,marque_etrangere,SIMVASTATINE
+glucofage,fr,fautes_francais,GLUCOPHAGE
+levotirox,fr,fautes_francais,LEVOTHYROX
+diamicrone,fr,fautes_francais,DIAMICRON
+doliprame,fr,fautes_francais,DOLIPRANE
+augmantin,fr,fautes_francais,AUGMENTIN
+paracetamole,fr,fautes_francais,PARACETAMOL
+amoxiciline,fr,fautes_francais,AMOXICILLINE
+tegretole,fr,fautes_francais,TEGRETOL
+دوا السكر,darija,maladie_symptome,REFUS
+medicine for diabetes,en,maladie_symptome,REFUS
+dwa ta3 rass,arabizi,maladie_symptome,REFUS
+mal de tête,fr,maladie_symptome,REFUS
+dwa ta3 sokar,arabizi,maladie_symptome,REFUS
+سخانة,darija,maladie_symptome,REFUS
+دوا الكحة,darija,maladie_symptome,REFUS
+blood pressure pills,en,maladie_symptome,REFUS
+médicament pour la tension,fr,maladie_symptome,REFUS
+headache,en,maladie_symptome,REFUS
+دوا تاع الكرش,darija,maladie_symptome,REFUS
+allergie,fr,maladie_symptome,REFUS
+cholestérol,fr,maladie_symptome,REFUS
+حساسية,ar,maladie_symptome,REFUS
+fever medicine,en,maladie_symptome,REFUS
+dwa ta3 ka77a,arabizi,maladie_symptome,REFUS

@@ -152,6 +152,24 @@ def fake_reader(client):
 
 
 @pytest.fixture
+def fake_interpreter(client):
+    """Install a simulated query interpreter (no call to a real model); returns a setter.
+
+    install(*answers, mode="llm_first") — no answers: the demo answers are used.
+    """
+    from app.llm.fake import FakeInterpreter
+
+    def install(*answers, mode="llm_first", by_query=None):
+        interpreter = FakeInterpreter(*answers, by_query=by_query)
+        client.app.state.interpreter = interpreter
+        client.app.state.search_mode = mode
+        return interpreter
+    yield install
+    client.app.state.interpreter = None
+    client.app.state.search_mode = "llm_first"
+
+
+@pytest.fixture
 def store(client):
     return client.app.state.store
 

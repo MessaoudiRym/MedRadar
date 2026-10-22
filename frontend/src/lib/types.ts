@@ -14,6 +14,23 @@ export interface MedicineSummary {
   nb_equivalents: number;
 }
 
+export type SearchMethod = "recherche" | "regles" | "llm" | "cache";
+export type QueryKind = "nom_marque" | "molecule" | "marque_etrangere" | "maladie_ou_symptome" | "inconnu";
+
+/** GET /medicines/search?interpret=true: results and how the query was understood */
+export interface SmartSearch {
+  results: MedicineSummary[];
+  interpretation: {
+    requete_originale: string;
+    langue_detectee: "fr" | "ar" | "darija" | "arabizi" | "en";
+    methode: SearchMethod;
+    compris_comme: string | null;
+    type: QueryKind | null;
+    a_verifier: boolean;
+  };
+  message: string | null;
+}
+
 export interface Medicine extends MedicineSummary {
   num_enregistrement: string;
   dci: string;

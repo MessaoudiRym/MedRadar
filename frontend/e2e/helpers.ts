@@ -21,3 +21,11 @@ export async function readTestBox(page: Page) {
   await expect(page.getByRole("img", { name: "Your photo of the medicine box" })).toBeVisible();
   await page.getByRole("button", { name: "Read this box" }).click();
 }
+
+/** Type a query and validate it with Enter (full search, which may use the language model). */
+export async function searchAndValidate(page: Page, text: string) {
+  const box = page.getByRole("combobox", { name: "Name of the medicine or active ingredient" });
+  await box.fill(text);
+  await box.press("Enter");
+  await expect(page).toHaveURL(/\/recherche\?q=/);
+}

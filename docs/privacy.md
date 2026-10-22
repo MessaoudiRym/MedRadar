@@ -21,6 +21,15 @@ Patients do not need an account.
 | Google may use it | Data sent to the Gemini API free tier may be used by Google to improve its services. |
 | Prescriptions are refused | This is why only medicine boxes are accepted. **Do not photograph your prescription**: it contains your name and your health information. When the model sees a prescription, MedRadar stops, searches nothing and sends nothing back. |
 
+### Searches in Arabic, Darija or English
+
+| What happens | Details |
+| --- | --- |
+| Some validated searches are sent to Google (Gemini API, free tier) | Only searches validated with Enter or the Search button, written in Arabic, Darija, arabizi or English (or a French search the normal search is unsure about), **only to understand the name of the medicine**. Suggestions shown while typing are never sent. |
+| No personal data | Only the text of the search is sent: no name, no account, no IP address, no position. |
+| Kept 30 days, without the person | What the model understood of a search is kept 30 days so the same search is never sent twice. Only the search text and the answer: nothing that links them to a person. Logs do not contain the text of searches. |
+| Google may use it | Data sent to the Gemini API free tier may be used by Google to improve its services. Do not type personal information in the search. |
+
 ## Pharmacists
 
 | Data | Why |

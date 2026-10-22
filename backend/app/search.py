@@ -48,8 +48,12 @@ class SearchIndex:
                 self.term_to_medicines.setdefault(term, set()).add(i)
         self.terms = list(self.term_to_medicines)
 
-    def search(self, query, limit=10):
+    def search(self, query, limit=10, with_scores=False):
+        """Medicines, best first. with_scores=True: [(medicine, confidence 0-100)],
+        100 for an exact start or a contained name, the similarity for a typo."""
         q = normalize(query)
+        if not q:
+            return []
         best = {}  # medicine index -> (tier, -score)
 
         def keep(i, tier, score):
@@ -74,4 +78,6 @@ class SearchIndex:
                 keep(i, TIER_FUZZY, score)
 
         ranked = sorted(best, key=lambda i: (best[i], self.brands[i], self.medicines[i]["id"]))
+        if with_scores:
+            return [(self.medicines[i], -best[i][1]) for i in ranked[:limit]]
         return [self.medicines[i] for i in ranked[:limit]]

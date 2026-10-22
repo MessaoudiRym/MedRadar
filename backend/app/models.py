@@ -126,3 +126,16 @@ class RecognitionAttempt(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     succeeded: Mapped[bool] = mapped_column(Boolean)
     attempted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class InterpretationCache(Base):
+    """What the language model understood of a query, so it is never asked twice.
+
+    Only the query text (lowercase, cleaned) and the model's answer: no IP, no user.
+    """
+    __tablename__ = "interpretations_cache"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    requete_normalisee: Mapped[str] = mapped_column(String(200), unique=True)
+    reponse_json: Mapped[str] = mapped_column(Text)
+    cree_le: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

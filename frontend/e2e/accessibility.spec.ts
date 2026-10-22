@@ -14,6 +14,8 @@ const PAGES = [
   { name: "registration", path: "/pharmacien/inscription" },
   { name: "privacy", path: "/confidentialite" },
   { name: "photo confirmation", path: "/", before: readTestBox, ready: "text=Is this your medicine?" },
+  { name: "search understood", path: "/recherche?q=%D8%BA%D9%84%D9%88%D9%83%D9%88%D9%81%D8%A7%D8%AC", ready: "text=we understood" },
+  { name: "search refused", path: "/recherche?q=medicine%20for%20diabetes", ready: "text=does not choose" },
 ];
 
 for (const p of PAGES) {

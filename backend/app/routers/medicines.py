@@ -1,8 +1,11 @@
 """Medicine search and equivalents (data from the official nomenclature)."""
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from slowapi.util import get_remote_address
+from sqlalchemy.orm import Session
 
-from ..schemas import Equivalents, Health, Medicine, SearchResult
+from ..db import get_db
+from ..schemas import Equivalents, Health, Medicine, SearchResult, SmartSearchResult
 
 router = APIRouter(tags=["medicines"])
 
@@ -25,13 +28,23 @@ def health(request: Request):
     return {"status": "ok", "medicines": len(request.app.state.store)}
 
 
-@router.get("/medicines/search", response_model=list[SearchResult])
+@router.get("/medicines/search", response_model=list[SearchResult] | SmartSearchResult)
 def search_medicines(
     request: Request,
-    q: str = Query(..., min_length=2, max_length=100, description="Brand name or active substance"),
+    q: str = Query(..., min_length=2, max_length=100,
+                   description="Brand name or active substance, in French, Arabic, Darija, "
+                               "arabizi or English"),
     limit: int = Query(10, ge=1, le=50),
+    interpret: bool = Query(False, description="false while typing (a list, never the language "
+                                               "model); true when the patient validates the search "
+                                               "(results with how the query was understood)"),
+    db: Session = Depends(get_db),
 ):
-    return request.app.state.index.search(q, limit)
+    smart = request.app.state.smart_search
+    if not interpret:
+        return smart.suggest(q, limit)
+    return smart.search(q, limit, db, get_remote_address(request),
+                        request.app.state.interpreter, request.app.state.search_mode)
 
 
 @router.get("/medicines/{medicine_id}", response_model=Medicine)
