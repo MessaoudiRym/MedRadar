@@ -3,12 +3,14 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..db import get_db, utcnow
+from ..delivery.schemas import DeliveryStats
 from ..models import (PHARMACY_PENDING, PHARMACY_REJECTED, PHARMACY_SUSPENDED,
-                      PHARMACY_VALIDATED, Pharmacy, User)
+                      PHARMACY_VALIDATED, DeliveryLine, DeliveryNote, DeliveryPhoto, Pharmacy,
+                      User)
 from ..schemas import AdminPharmacy, ReasonIn
 from ..security import require_admin
 
@@ -73,3 +75,15 @@ def suspend(pharmacy_id: int, data: ReasonIn, db: Session = Depends(get_db)):
     pharmacy.status_reason = data.motif
     db.commit()
     return pharmacy
+
+
+@router.get("/stats/deliveries", response_model=DeliveryStats)
+def delivery_stats(db: Session = Depends(get_db)):
+    """Global counts only. The admin never sees the content of a note or its photos."""
+    return {
+        "bons_gardes": db.scalar(select(func.count(DeliveryNote.id))) or 0,
+        "lignes": db.scalar(select(func.count(DeliveryLine.id))) or 0,
+        "pages_photos": db.scalar(select(func.count(DeliveryPhoto.id))) or 0,
+        "pharmacies_utilisatrices": db.scalar(
+            select(func.count(distinct(DeliveryNote.pharmacie_id)))) or 0,
+    }
