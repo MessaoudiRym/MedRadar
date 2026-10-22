@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { formatDose } from "@/lib/format";
 import { formLabel, titleCase } from "@/lib/messages";
 import { compressPhoto, describeReading, photoProblem, recognizePhoto, type PhotoProblem } from "@/lib/photo";
-import type { Correspondence, Features, Recognition } from "@/lib/types";
+import type { Features, Recognition, RecognitionMatch } from "@/lib/types";
 import { useAsync } from "@/lib/useAsync";
 
 type Step =
@@ -19,7 +19,7 @@ type Step =
   | { name: "result"; url: string; data: Recognition }
   | { name: "error"; url: string | null; problem: PhotoProblem };
 
-const BADGES: Record<Correspondence, { label: string; className: string; icon: React.ReactNode }> = {
+const BADGES: Record<RecognitionMatch, { label: string; className: string; icon: React.ReactNode }> = {
   exacte: {
     label: "Exact match",
     className: "bg-stock-soft text-stock border-stock-line",

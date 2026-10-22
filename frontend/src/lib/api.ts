@@ -112,3 +112,27 @@ export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   return "Something went wrong. Please try again.";
 }
+
+/** A file from a protected route (photo, CSV export): never a public link. */
+export async function apiFile(path: string, token: string | null, signal?: AbortSignal): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(API_URL + path, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]) : AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw new ApiError(0, NETWORK_ERROR);
+  }
+  if (!response.ok) {
+    let data: unknown = null;
+    try {
+      data = await response.json();
+    } catch {
+      // not JSON
+    }
+    throw toApiError(response.status, data);
+  }
+  return response.blob();
+}

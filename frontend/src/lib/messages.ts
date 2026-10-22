@@ -36,6 +36,15 @@ const API_MESSAGES: Record<string, string> = {
     "Enter an Algerian number, e.g. 0550 12 34 56 or 041 23 45 67.",
   "Les coordonnées doivent être situées en Algérie.": "The position must be in Algeria.",
   "Field required": "This field is required.",
+  "Bon introuvable.": "This delivery note was not found.",
+  "Pas de photo pour ce bon.": "There is no photo for this note.",
+  "Un bon ne peut être annulé que dans les 24 heures après sa confirmation.":
+    "A note can only be cancelled within 24 hours of its confirmation.",
+  "Ce bon est déjà annulé.": "This note is already cancelled.",
+  "Analyse introuvable.": "This reading was not found. Scan the note again.",
+  "Ce bon a déjà été confirmé.": "This note was already confirmed.",
+  "Cette analyse a expiré (1 heure). Scannez le bon à nouveau.": "This reading expired (1 hour). Scan the note again.",
+  "Choisissez un médicament, ou ignorez la ligne.": "Choose a medicine, or ignore the line.",
 };
 
 export function translateApiMessage(message: string): string {
