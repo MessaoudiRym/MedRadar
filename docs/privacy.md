@@ -41,6 +41,16 @@ Patients do not need an account.
 
 Passwords are never stored: only a bcrypt hash is kept, and passwords are never sent back by the API.
 
+### Delivery notes
+
+| What happens | Details |
+| --- | --- |
+| Photos of a delivery note are sent to Google (Gemini API, free tier) | **Only to read the note.** Google may use data sent to the free tier to improve its services. |
+| Nothing is put in stock without the pharmacist | The reading waits at most 1 hour for the confirmation, then is deleted. |
+| History only if the pharmacist chooses it | The detail of the lines (medicine, quantity, batch, expiry, what was done) is kept **24 months**; the photo only if asked, **90 days**. Visible only to the pharmacy: never to other pharmacies, never to the admin (who only sees global counts). |
+| No price, ever | Prices, amounts, discounts, VAT and totals are not read into MedRadar and there is no place to store them. |
+| The pharmacist decides | They can delete a photo or a note at any time, and export their history. Deleting the pharmacy's account deletes its whole history and photos. |
+
 ## What patients can see
 
 Public routes only show validated pharmacies, with their business details (name, address, phone, opening hours). They never show an email, a professional number or the account behind a pharmacy.

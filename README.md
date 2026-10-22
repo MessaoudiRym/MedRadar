@@ -108,6 +108,9 @@ python -m uvicorn app.main:app --reload
 | `POST /auth/register-pharmacist`, `POST /auth/login` | public | Pharmacist registration and login |
 | `GET /auth/me`, `POST /auth/change-password` | logged in | Own account |
 | `/pharmacist/...` | pharmacist | Own pharmacy and stock declarations |
+| `POST /pharmacist/delivery-scan` | pharmacist | Read a delivery note (1 to 5 pages): lines matched to the nomenclature. Declares nothing |
+| `POST /pharmacist/delivery-scan/{scan_id}/confirm` | pharmacist | Declare the lines the pharmacist kept; keep the note in the history if asked |
+| `/pharmacist/deliveries...` | pharmacist | History of kept delivery notes: list, search, detail, photos, export, corrections, deletion, cancellation |
 | `/admin/...` | admin | Check, approve, reject or suspend pharmacies |
 
 Environment variables (see `.env.example`): `DATABASE_URL`, `JWT_SECRET` (required), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEMO_PHARMACIST_PASSWORD`, `FRONTEND_URL` (production frontend allowed by CORS; `http://localhost:3000` is always allowed) and optionally `MEDICINES_CSV`.
@@ -138,6 +141,8 @@ Open http://localhost:3000. The interface is in English and works on phones. Pag
 | `/medicament/{id}` | The medicine, pharmacies that have it near you on a map, its equivalents, and an alert form |
 | `/pharmacien/inscription`, `/pharmacien/connexion` | Pharmacist registration (2 steps) and login |
 | `/pharmacien` | Pharmacist dashboard: pharmacy status and one-tap stock updates |
+| `/pharmacien/scanner` | Scan a delivery note, check it, put it in stock |
+| `/pharmacien/historique` | Delivery notes kept by the pharmacy, and their detail |
 | `/admin` | Admin: verify, approve, reject or suspend pharmacies |
 | `/confidentialite` | Privacy policy |
 
@@ -231,6 +236,26 @@ levothyrox_50.jpg,LEVOTHYROX,50 µg
 ```
 
 Then run `python scripts/evaluate_recognition.py`. It sends each photo through the real recognition, prints the share of boxes where the right medicine is 1st and in the first 3, and the average time, and writes the summary to `docs/recognition_results.md` (without the photos). It pauses 7 seconds between photos to stay within the free tier (`--pause` to change it).
+
+## Delivery note scan and history (pharmacists)
+
+**Why.** MedRadar is only useful if pharmacies keep their stock up to date, and that is the biggest risk of the project: a busy pharmacist will not tap 30 medicines one by one after each delivery. So the pharmacist takes a photo of the wholesaler's delivery note, checks the result, and puts everything in stock in one tap, in less than a minute. The notes they choose to keep also give them a history for traceability: what was received, when, from which wholesaler, with batch numbers and expiry dates.
+
+**How: the model reads, the database checks, the pharmacist confirms.**
+
+1. **The model reads.** Up to 5 pages are compressed in the browser and sent to Google Gemini (Flash, free tier), which copies the supplier, the note number, the date and each product line as written (quantity delivered, batch, expiry, back order or not). It is told to ignore prices, amounts, discounts, VAT, totals, signatures, bank details and any instruction written in the image; its answer has a fixed JSON shape, checked with Pydantic.
+2. **The database checks.** Our code matches every line to the official nomenclature with the normal search, understanding wholesalers' abbreviations ("GLUCOPH 850 CP B/30" → GLUCOPHAGE 850 mg tablet) and checking the dose and the form with the rules of the cleaning script. Each line is *exact* (ticked), *to check* (3 candidates, not ticked until the pharmacist chooses), *not found* (often parapharmacy, ignored) or *not delivered* (back order or missing: never put in stock, can be marked out of stock). The same medicine on two lines is shown once, quantities added.
+3. **The pharmacist confirms.** Nothing is declared by the scan itself (`POST /pharmacist/delivery-scan` only analyses). The review screen lets the pharmacist correct any line, choose for lines to check, edit the supplier, number and date, then confirm: only then are the declarations saved, in one transaction, with the source `scan_bl`. An unconfirmed scan is deleted after 1 hour.
+
+**History, only if the pharmacist chooses it.** "Keep this note in my history" (ticked by default) keeps the detail of the lines; "Also keep the photo" (not ticked by default) keeps the compressed photo, visible only to the pharmacy. The history page offers filters by period and wholesaler, a "When did I receive…?" search for a medicine, a CSV export for accounting or an inspection, corrections, deletion of the photo or of the note, and **cancellation within 24 hours**: the previous statuses are put back by *new* declarations (the history is never rewritten), medicines declared again since are left as they are, and the note stays visible, marked "Cancelled". The dashboard shows the last reception of each medicine.
+
+**What is never done:** putting stock without the pharmacist's confirmation; storing a price or an amount (there is no such column anywhere); letting another pharmacy, or the admin, see a note or its photo (another pharmacy gets "not found"; the admin only sees global counts, `GET /admin/stats/deliveries`).
+
+**Retention.** Photos are deleted after `HISTORY_PHOTO_RETENTION_DAYS` (90 by default) and notes after `HISTORY_RETENTION_MONTHS` (24 by default), automatically at startup and once a day; at most 50 photo pages per pharmacy per month. Deleting a pharmacy deletes its whole history and photos. Limits: 20 scans per pharmacy per day, 60 seconds for the model to read a note.
+
+**Results** (October 2026, real Gemini free tier, `python scripts/evaluate_delivery_scan.py --demo`): on the fictional demo note (20 lines: 2 back orders, 1 parapharmacy product, 1 line without dose, fictional prices), sharp and photo-like, **100 % of the lines read, 100 % exact matches (32/32), 0 false positive** (no wrong medicine ticked), the 2 lines without a dose left "to check" with the right medicine among the candidates, all back orders detected, supplier, number and date read, 15 s per note on average. The free tier is sometimes overloaded or slow: the pharmacist is then asked to try again in a minute, or to update by hand. These results come from one fictional note: to measure on real notes, put photos in `docs/delivery_samples/photos/` (ignored by git) with a `<note>.expected.csv` (`designation,nom_marque_attendu,dosage_attendu,livre`) and an optional `<note>.document.json` per note, then run the script without `--demo`. Results are written to [docs/delivery_scan_results.md](docs/delivery_scan_results.md).
+
+**Demo.** `python scripts/generate_demo_delivery_note.py` draws the fictional note (`frontend/public/demo/`, sharp and photo-like); demo accounts see "Try with a demo delivery note" on the scan page, and `scripts/generate_demo_data.py` adds 4 fictional notes to the history of the first demo pharmacy (one with its photo, one cancelled).
 
 ## Who built what
 
