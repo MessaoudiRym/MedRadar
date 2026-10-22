@@ -7,7 +7,7 @@ Request models forbid unknown fields, so that a client can never send
 """
 
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Annotated, Literal
 
 from pydantic import (AfterValidator, BaseModel, ConfigDict, EmailStr, Field,
@@ -151,6 +151,7 @@ class Equivalents(BaseModel):
 
 class Features(BaseModel):
     photo_recognition: bool
+    delivery_scan: bool
 
 
 class TextRead(BaseModel):
@@ -303,11 +304,22 @@ class DeclarationOut(BaseModel):
     date_declaration: UTCDateTime
 
 
+class LastReception(BaseModel):
+    """From the delivery notes kept in the history."""
+    bon_id: int
+    date: date
+    fournisseur: str | None
+    quantite: float | None
+    numero_lot: str | None
+    date_peremption: str | None
+
+
 class TrackedStock(BaseModel):
     medicament: SearchResult
     statut: str | None
     date_declaration: UTCDateTime | None
     a_confirmer: bool
+    derniere_reception: LastReception | None = None
 
 
 # --------------------------------------------------------------------------

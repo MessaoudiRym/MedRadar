@@ -6,11 +6,13 @@ for another pharmacy.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db, utcnow
-from ..models import (PHARMACY_PENDING, PHARMACY_REJECTED, PHARMACY_VALIDATED, Pharmacy,
-                      StockDeclaration, TrackedMedicine, User)
+from ..models import (PHARMACY_PENDING, PHARMACY_REJECTED, PHARMACY_VALIDATED, SOURCE_MANUAL,
+                      DeliveryLine, DeliveryNote, Pharmacy, StockDeclaration, TrackedMedicine,
+                      User)
 from ..schemas import (DeclarationOut, OwnPharmacy, PharmacyUpdate, StockBulkIn,
                        StockDeclarationIn, TrackedStock)
 from ..security import get_own_pharmacy, get_validated_pharmacy, require_pharmacist
@@ -55,8 +57,12 @@ def _check_medicines(request, medicine_ids):
                             detail=f"Médicament introuvable : {', '.join(unknown)}")
 
 
-def _declare(db, pharmacy, user, items):
-    """Add declarations (history is kept) and track the medicines."""
+def _declare(db, pharmacy, user, items, source=SOURCE_MANUAL, bon_id=None, commit=True):
+    """Add declarations (history is kept) and track the medicines.
+
+    items: objects with medicament_id and statut. commit=False lets the delivery
+    note confirmation save everything in one transaction.
+    """
     now = utcnow()
     tracked = {t.medicine_id for t in db.query(TrackedMedicine).filter(
         TrackedMedicine.pharmacy_id == pharmacy.id,
@@ -65,12 +71,14 @@ def _declare(db, pharmacy, user, items):
     for item in items:
         declarations.append(StockDeclaration(
             pharmacy_id=pharmacy.id, medicine_id=item.medicament_id,
-            status=item.statut, declared_by=user.id, declared_at=now))
+            status=item.statut, declared_by=user.id, declared_at=now,
+            source=source, bon_id=bon_id))
         if item.medicament_id not in tracked:
             db.add(TrackedMedicine(pharmacy_id=pharmacy.id, medicine_id=item.medicament_id))
             tracked.add(item.medicament_id)
     db.add_all(declarations)
-    db.commit()
+    if commit:
+        db.commit()
     return [{"medicament_id": d.medicine_id, "statut": d.status,
              "date_declaration": d.declared_at} for d in declarations]
 
@@ -100,6 +108,7 @@ def tracked_stock(request: Request, pharmacy: Pharmacy = Depends(get_own_pharmac
     store = request.app.state.store
     latest = {row.medicine_id: row for row in latest_declarations(db, pharmacy_id=pharmacy.id)}
     tracked = db.query(TrackedMedicine).filter(TrackedMedicine.pharmacy_id == pharmacy.id).all()
+    received = last_receptions(db, pharmacy.id)
 
     items = []
     for t in tracked:
@@ -112,11 +121,29 @@ def tracked_stock(request: Request, pharmacy: Pharmacy = Depends(get_own_pharmac
             "statut": row.status if row else None,
             "date_declaration": row.declared_at if row else None,
             "a_confirmer": is_stale(row.declared_at) if row else True,
+            "derniere_reception": received.get(t.medicine_id),
         })
     # Never declared first, then from oldest to newest
     items.sort(key=lambda i: (i["date_declaration"] is not None,
                               i["date_declaration"] or 0, i["medicament"]["nom_marque"]))
     return items
+
+
+def last_receptions(db, pharmacy_id):
+    """Last reception of each medicine, from the delivery notes kept (not cancelled)."""
+    rows = db.execute(
+        select(DeliveryNote, DeliveryLine)
+        .join(DeliveryLine, DeliveryLine.bon_id == DeliveryNote.id)
+        .where(DeliveryNote.pharmacie_id == pharmacy_id, DeliveryNote.annule_le.is_(None),
+               DeliveryLine.action == "en_stock", DeliveryLine.medicament_id.is_not(None))
+        .order_by(DeliveryNote.confirme_le.desc(), DeliveryLine.id)).all()
+    last = {}
+    for note, line in rows:
+        last.setdefault(line.medicament_id, {
+            "bon_id": note.id, "date": note.date_bon or note.confirme_le.date(),
+            "fournisseur": note.fournisseur, "quantite": line.quantite,
+            "numero_lot": line.numero_lot, "date_peremption": line.date_peremption})
+    return last
 
 
 @router.delete("/tracked/{medicine_id}", status_code=status.HTTP_204_NO_CONTENT)
