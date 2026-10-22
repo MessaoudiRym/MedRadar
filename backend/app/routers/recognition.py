@@ -10,7 +10,6 @@ import logging
 from fastapi import APIRouter, Depends, Request
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
-from starlette.formparsers import MultiPartException, MultiPartParser
 
 from ..db import get_db
 from ..images import MAX_BYTES, TOO_LARGE, ImageRejected, prepare_image
@@ -18,6 +17,7 @@ from ..limiter import limiter
 from ..models import RecognitionAttempt
 from ..recognition import rank
 from ..schemas import Features, RecognitionResult
+from ..uploads import UploadRejected, read_files
 from ..vision.base import BOX, ProviderBusy, QuotaExceeded, ReaderError, ReaderTimeout, read_box
 
 logger = logging.getLogger("medradar")
@@ -57,45 +57,20 @@ def save_attempt(db: Session, succeeded: bool):
 
 
 async def read_photo(request: Request) -> bytes:
-    """The uploaded file, read in memory with a size limit.
-
-    FastAPI's UploadFile would copy files over 1 MB to a temporary file on disk:
-    the body is read here instead, and the parser is told to keep it in memory.
-    """
-    if not request.headers.get("content-type", "").startswith("multipart/form-data"):
-        raise RecognitionFailed(400, "photo_manquante", NO_PHOTO)
-    declared = request.headers.get("content-length", "")
-    if declared.isdigit() and int(declared) > MAX_REQUEST_BYTES:
-        raise RecognitionFailed(413, "trop_lourde", TOO_LARGE)
-
-    body = bytearray()
-    async for chunk in request.stream():
-        body += chunk
-        if len(body) > MAX_REQUEST_BYTES:
-            raise RecognitionFailed(413, "trop_lourde", TOO_LARGE)
-
-    async def stream():
-        yield bytes(body)
-
-    parser = MultiPartParser(request.headers, stream(), max_files=1, max_fields=5)
-    parser.spool_max_size = MAX_REQUEST_BYTES  # never roll over to a file on disk
+    """The uploaded photo, read in memory only (app/uploads.py)."""
     try:
-        form = await parser.parse()
-    except MultiPartException:
-        raise RecognitionFailed(400, "photo_manquante", NO_PHOTO) from None
-    try:
-        upload = form.get(FIELD)
-        if upload is None or isinstance(upload, str):
-            raise RecognitionFailed(400, "photo_manquante", NO_PHOTO)
-        return await upload.read()
-    finally:
-        await form.close()
+        files = await read_files(request, FIELD, 1, MAX_REQUEST_BYTES, missing=NO_PHOTO,
+                                 too_large=TOO_LARGE, too_many=NO_PHOTO)
+    except UploadRejected as error:
+        raise RecognitionFailed(error.status, error.code, error.message) from None
+    return files[0]
 
 
 @router.get("/features", response_model=Features)
 def features(request: Request):
-    """What this server can do: the app hides the photo buttons when it is off."""
-    return {"photo_recognition": request.app.state.reader is not None}
+    """What this server can do: the app hides the buttons of what is off."""
+    return {"photo_recognition": request.app.state.reader is not None,
+            "delivery_scan": request.app.state.delivery_reader is not None}
 
 
 @router.post(
