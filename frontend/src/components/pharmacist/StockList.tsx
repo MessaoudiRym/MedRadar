@@ -1,14 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { AlertIcon, CheckIcon, ClockIcon, CrossIcon } from "../icons";
 import { SearchBox } from "../SearchBox";
 import { buttonClass, ErrorState, Loading, Notice, StatusBadge } from "../ui";
 import { errorMessage } from "@/lib/api";
+import { formatDay, formatExpiry, formatQuantity } from "@/lib/delivery";
 import { formatDose, updatedAgo } from "@/lib/format";
 import { formLabel, titleCase } from "@/lib/messages";
-import type { Declaration, MedicineSummary, StockStatus, TrackedStock } from "@/lib/types";
+import type { Declaration, LastReception, MedicineSummary, StockStatus, TrackedStock } from "@/lib/types";
 import { useAsync } from "@/lib/useAsync";
 
 type AuthApi = <T>(path: string, options?: Parameters<typeof import("@/lib/api").api>[1]) => Promise<T>;
@@ -192,6 +194,8 @@ function StockRow({ item, busy, message, onDeclare, onUntrack }: {
         {item.a_confirmer && " — please update"}
       </p>
 
+      {item.derniere_reception && <LastReceived reception={item.derniere_reception} />}
+
       <div className="grid grid-cols-2 gap-2" role="group" aria-label={`Stock of ${name}`}>
         <button
           type="button"
@@ -226,5 +230,24 @@ function StockRow({ item, busy, message, onDeclare, onUntrack }: {
         Stop following this medicine
       </button>
     </li>
+  );
+}
+
+/** "Last received: 22/10/2026, Grossiste X, 30 boxes, batch ABC123, exp. 05/2028", from the history. */
+function LastReceived({ reception }: { reception: LastReception }) {
+  const facts = [
+    formatDay(reception.date),
+    reception.fournisseur,
+    formatQuantity(reception.quantite),
+    reception.numero_lot && `batch ${reception.numero_lot}`,
+    formatExpiry(reception.date_peremption) && `exp. ${formatExpiry(reception.date_peremption)}`,
+  ].filter(Boolean);
+  return (
+    <p className="text-[0.95rem] text-muted">
+      Last received: {facts.join(", ")} ·{" "}
+      <Link href={`/pharmacien/historique/${reception.bon_id}`} className="font-semibold text-brand underline">
+        See the note
+      </Link>
+    </p>
   );
 }
