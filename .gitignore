@@ -30,3 +30,6 @@ Thumbs.db
 
 # Real photos for scripts/evaluate_recognition.py: never committed
 docs/recognition_samples/photos/
+
+# Real delivery note photos for scripts/evaluate_delivery_scan.py: never committed
+docs/delivery_samples/photos/
