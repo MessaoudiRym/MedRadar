@@ -129,19 +129,20 @@ class LineMatcher:
         """{correspondance, medicament, candidats} for one line read by the model."""
         parsed_name, parsed_dose, parsed_form = parse_designation(line.designation)
         names = [n for n in (line.nom_marque, parsed_name) if n]
-        dose = line.dosage or parsed_dose
-        form_text = " ".join(FORM_WORDS.get(w, w) for w in normalize(line.forme or "").split()) \
-            or parsed_form
-        read_group = form_group(form_text) if form_text else None
-        read_dose = dose.lower() if dose and re.search(r"\d", dose) else None
+        # What the model put in its fields AND what our parser finds in the designation:
+        # a model may write "1G CP DISP" as the dose; either reading may agree
+        doses = [d.lower() for d in (line.dosage, parsed_dose) if d and re.search(r"\d", d)]
+        model_form = " ".join(FORM_WORDS.get(w, w) for w in normalize(line.forme or "").split())
+        groups = [form_group(f) for f in (model_form, parsed_form) if f]
 
         scored = []
         for medicine in self.candidates(names or [line.designation]):
             name = max((name_similarity(n, medicine) for n in names), default=0.0)
             if name < LIKELY_NAME:
                 continue
-            dose_ok = bool(read_dose) and dose_matches(read_dose, medicine["dosage_norm"])
-            form_ok = form_agrees(read_group, medicine)
+            dose_ok = any(dose_matches(d, medicine["dosage_norm"]) for d in doses)
+            agreements = [form_agrees(g, medicine) for g in groups]
+            form_ok = True if True in agreements else (False if False in agreements else None)
             score = 0.6 * name + 0.25 * dose_ok + 0.15 * (0.5 if form_ok is None else form_ok)
             scored.append((score, name, dose_ok, form_ok, medicine))
         scored.sort(key=lambda s: (-s[0], s[4]["nom_marque"], s[4]["id"]))

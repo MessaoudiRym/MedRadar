@@ -612,3 +612,14 @@ def test_no_image_is_written_to_disk(client, pharmacist):
         _written = None
     assert response.status_code == 200
     assert written == []
+
+
+def test_messy_model_fields_still_match(client, pharmacist, fake_delivery_reader, store):
+    # A model may put the form in the dose field: our own reading of the text still agrees
+    headers, _ = pharmacist
+    fake_delivery_reader(note({"designation": "CLAMOXYL 1G CP DISP B/6", "nom_marque": "CLAMOXYL",
+                               "dosage": "1G CP DISP", "forme": None, "quantite_livree": 10,
+                               "statut_ligne": "livre"}))
+    line = scan(client, headers).json()["lignes"][0]
+    assert line["correspondance"] == "exacte"
+    assert line["medicament"]["id"] == find_medicine(store, "CLAMOXYL", "1000MG")["id"]

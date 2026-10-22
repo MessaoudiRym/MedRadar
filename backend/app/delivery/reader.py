@@ -205,10 +205,15 @@ class GeminiDeliveryReader:
     name = "gemini"
 
     def __init__(self, api_key: str, model: str, timeout_seconds: int, fallback_model: str = ""):
+        from google.genai import types
+
         from ..llm.gemini import get_client, json_config, models_with_fallback
         self.models = models_with_fallback(model, fallback_model)
         self.client = get_client(api_key)
-        self.config = json_config(INSTRUCTIONS, JSON_SCHEMA, timeout_seconds)
+        # Low thinking: copying a table does not need long reasoning, and a full note
+        # must be read within 60 s
+        self.config = json_config(INSTRUCTIONS, JSON_SCHEMA, timeout_seconds,
+                                  thinking=types.ThinkingLevel.LOW)
 
     def read(self, pages_jpeg: list[bytes]) -> str:
         from google.genai import types
