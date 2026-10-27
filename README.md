@@ -193,15 +193,18 @@ Screenshots of the main screens are in [docs/screenshots/](docs/screenshots/).
 
 Admin accounts are only created by `scripts/create_admin.py`; no API route can create one. See [docs/privacy.md](docs/privacy.md) for the data stored.
 
-**Demo data.** The 40 demo pharmacies, their stock levels and the demo pharmacist accounts are simulated and fictional: names, addresses and phone numbers (0550 00 00 XX) are made up, and positions are random points in real Oran districts. API responses say so (`"demo_data": true`). Only the medicines and their equivalents come from official data.
+**Demo data.** The demo pharmacies, their stock levels and the demo pharmacist accounts are simulated and fictional: names, addresses and phone numbers (0550 00 00 XX) are made up, and positions are random points in real Oran districts. API responses say so (`"demo_data": true`). Only the medicines and their equivalents come from official data.
 
 Demo logins, on http://localhost:3000/pharmacien/connexion, all with the password `DEMO_PHARMACIST_PASSWORD` from `.env`:
 
 | Account | Pharmacy |
 | --- | --- |
-| `pharmacien1@medradar.demo` | Approved, with 4 delivery notes in its history |
-| `pharmacien2@medradar.demo` | Approved |
+| `pharmacien1@medradar.demo` | Approved, with a stock history and 4 delivery notes |
+| `pharmacien2@medradar.demo` | Approved, with a stock history |
 | `pharmacien3@medradar.demo` | Waiting for verification (cannot declare stock) |
+| `pharmacien4@medradar.demo` | Approved and empty: no stock, no history, to try everything from scratch |
+
+A jury member who changes the address of a demo pharmacy sends it back to verification, for everyone using that account: run `python scripts/generate_demo_data.py` again before a demo to reset all demo accounts and pharmacies.
 
 The admin account is the one of `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 
