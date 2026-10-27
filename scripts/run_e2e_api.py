@@ -32,6 +32,8 @@ def main():
         # Photo recognition with the simulated reader: it always "reads" GLUCOPHAGE 850,
         # and no photo is sent to a real model
         "LLM_PROVIDER": "fake",
+        # Alert emails with the simulated sender: nothing is sent
+        "EMAIL_PROVIDER": "fake",
     })
     for name in ("ADMIN_EMAIL", "ADMIN_PASSWORD", "DEMO_PHARMACIST_PASSWORD"):
         if not env.get(name):

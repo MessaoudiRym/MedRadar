@@ -27,7 +27,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Alerts</strong> keep your email, the medicine and the area, rounded to about 1 km, so we can
-            tell you when the medicine is back nearby. At most 5 active alerts per email.
+            tell you when the medicine is back nearby. At most 5 active alerts per email. We send one email, through
+            our email service Brevo, then the alert is finished.
           </li>
         </ul>
       </section>
