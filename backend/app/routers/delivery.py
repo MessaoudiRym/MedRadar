@@ -12,7 +12,7 @@ import logging
 import uuid
 from types import SimpleNamespace
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from limits import parse
 from sqlalchemy.orm import Session
@@ -30,7 +30,7 @@ from ..models import (SOURCE_DELIVERY_SCAN, DeliveryLine, DeliveryNote, Delivery
                       DeliveryScan, DeliveryScanPage, Pharmacy, User)
 from ..security import get_validated_pharmacy, require_pharmacist
 from ..uploads import UploadRejected, read_files
-from .pharmacist import _declare
+from .pharmacist import _declare, notify_alerts
 
 logger = logging.getLogger("medradar")
 router = APIRouter(prefix="/pharmacist", tags=["delivery notes"])
@@ -163,7 +163,7 @@ def _get_scan(db, scan_id: str, pharmacy: Pharmacy) -> DeliveryScan:
 
 
 @router.post("/delivery-scan/{scan_id}/confirm", response_model=ConfirmOut)
-def confirm(request: Request, scan_id: str, data: ConfirmIn,
+def confirm(request: Request, scan_id: str, data: ConfirmIn, background_tasks: BackgroundTasks,
             pharmacy: Pharmacy = Depends(get_validated_pharmacy),
             user: User = Depends(require_pharmacist), db: Session = Depends(get_db)):
     """Declare the lines the pharmacist kept, in one transaction, and keep the note
@@ -233,6 +233,7 @@ def confirm(request: Request, scan_id: str, data: ConfirmIn,
     scan_row.resultat_json = "{}"
     scan_row.pages = []
     db.commit()
+    notify_alerts(request, background_tasks, pharmacy, items)
 
     return {
         "nb_en_stock": sum(1 for s in statuses.values() if s == "en_stock"),

@@ -3,7 +3,7 @@ from datetime import timedelta
 from tests.conftest import find_medicine, register_pharmacist
 
 from app.db import SessionLocal, utcnow
-from app.models import Pharmacy, Search, StockDeclaration, TrackedMedicine
+from app.models import Alert, Pharmacy, Search, StockDeclaration, TrackedMedicine
 from app.routers.public import DEMO_MESSAGE
 
 ORAN = {"lat": 35.697, "lng": -0.633}
@@ -159,3 +159,139 @@ def test_alerts_limited_to_5_per_email(client, store):
                                           "medicament_id": m["id"]}).status_code
              for m in medicines]
     assert codes == [201] * 5 + [409]
+
+
+# --------------------------------------------------------------------------
+# Alert emails
+# --------------------------------------------------------------------------
+
+def create_alert(client, medicine_id, email="patient@example.com", **position):
+    response = client.post("/alerts", json={"email": email, "medicament_id": medicine_id,
+                                            **(position or ORAN)})
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def alert_sent_at(alert_id):
+    with SessionLocal() as db:
+        return db.get(Alert, alert_id).sent_at
+
+
+def test_alert_email_sent_once_when_declared_in_stock(client, store, mailer, validated_pharmacist):
+    medicine = find_medicine(store, "GLUCOPHAGE 850", "850MG")
+    alert_id = create_alert(client, medicine["id"])
+    headers, _ = validated_pharmacist(pharmacie={"nom": "Pharmacie du Port"})
+
+    declare(client, headers, medicine["id"], "rupture")
+    assert mailer.sent == []
+
+    declare(client, headers, medicine["id"], "en_stock")
+    assert len(mailer.sent) == 1
+    email = mailer.sent[0]
+    assert email["to"] == "patient@example.com"
+    assert "Glucophage 850" in email["subject"]
+    assert "Pharmacie du Port" in email["text"] and "Pharmacie du Port" in email["html"]
+    assert alert_sent_at(alert_id) is not None
+
+    # Finished: a new declaration does not email the patient again
+    declare(client, headers, medicine["id"], "en_stock")
+    assert len(mailer.sent) == 1
+
+
+def test_alert_answered_by_an_exact_equivalent(client, store, mailer, validated_pharmacist):
+    medicine = find_medicine(store, "GLUCOPHAGE 850", "850MG")
+    equivalent = store.equivalents(medicine)[0]
+    create_alert(client, medicine["id"])
+    headers, _ = validated_pharmacist()
+    declare(client, headers, equivalent["id"], "en_stock")
+    assert len(mailer.sent) == 1
+    assert "exact equivalent" in mailer.sent[0]["text"]
+    assert "ask your pharmacist" in mailer.sent[0]["text"]
+
+
+def test_alert_not_sent_outside_the_radius(client, store, mailer, validated_pharmacist):
+    medicine = find_medicine(store, "GLUCOPHAGE 850", "850MG")
+    alert_id = create_alert(client, medicine["id"])
+    headers, _ = validated_pharmacist(pharmacie={"latitude": 36.75, "longitude": 3.06})  # Alger
+    declare(client, headers, medicine["id"], "en_stock")
+    assert mailer.sent == []
+    assert alert_sent_at(alert_id) is None
+
+
+def test_alert_kept_active_when_the_email_fails(client, store, mailer, validated_pharmacist):
+    medicine = find_medicine(store, "GLUCOPHAGE 850", "850MG")
+    alert_id = create_alert(client, medicine["id"])
+    headers, _ = validated_pharmacist()
+    mailer.fail = True
+    declare(client, headers, medicine["id"], "en_stock")  # the declaration is still saved
+    assert alert_sent_at(alert_id) is None
+
+    mailer.fail = False
+    declare(client, headers, medicine["id"], "en_stock")
+    assert len(mailer.sent) == 1
+
+
+def test_alert_sent_when_a_pharmacy_with_stock_is_approved_again(client, store, mailer,
+                                                                 validated_pharmacist, admin_headers):
+    medicine = find_medicine(store, "GLUCOPHAGE 850", "850MG")
+    headers, pharmacy_id = validated_pharmacist()
+    declare(client, headers, medicine["id"], "en_stock")
+    # The pharmacy moves: hidden from patients until checked again
+    assert client.patch("/pharmacist/pharmacy", headers=headers,
+                        json={"adresse": "Nouvelle adresse, Oran"}).status_code == 200
+    create_alert(client, medicine["id"])
+    assert mailer.sent == []
+
+    assert client.post(f"/admin/pharmacies/{pharmacy_id}/approve",
+                       headers=admin_headers).status_code == 200
+    assert len(mailer.sent) == 1
+
+
+def test_bulk_declaration_sends_alerts(client, store, mailer, validated_pharmacist):
+    medicine = find_medicine(store, "GLUCOPHAGE 850", "850MG")
+    create_alert(client, medicine["id"], email="a@example.com")
+    create_alert(client, medicine["id"], email="b@example.com")
+    headers, _ = validated_pharmacist()
+    response = client.post("/pharmacist/stock/bulk", headers=headers, json={"declarations": [
+        {"medicament_id": medicine["id"], "statut": "en_stock"}]})
+    assert response.status_code == 201, response.text
+    assert sorted(e["to"] for e in mailer.sent) == ["a@example.com", "b@example.com"]
+
+
+def test_alerts_off_without_an_email_service(client, store):
+    mailer = client.app.state.mailer
+    client.app.state.mailer = None
+    try:
+        assert client.get("/features").json()["email_alerts"] is False
+        medicine = find_medicine(store, "GLUCOPHAGE 850", "850MG")
+        response = client.post("/alerts", json={"email": "patient@example.com",
+                                                "medicament_id": medicine["id"]})
+        assert response.status_code == 503
+    finally:
+        client.app.state.mailer = mailer
+    assert client.get("/features").json()["email_alerts"] is True
+
+
+def test_brevo_request(monkeypatch):
+    import httpx
+    import pytest
+    from app.mail import BREVO_URL, BrevoMailer, MailError
+
+    calls = []
+
+    def fake_post(url, **kwargs):
+        calls.append((url, kwargs))
+        accepted = kwargs["json"]["to"][0]["email"] == "ok@example.com"
+        return httpx.Response(201 if accepted else 401, text='{"message":"Key not found"}')
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    mailer = BrevoMailer("secret-key", "alerts@medradar.example", "MedRadar", 5)
+    mailer.send("ok@example.com", "Subject", "Text", "<p>Text</p>")
+    url, kwargs = calls[0]
+    assert url == BREVO_URL and kwargs["headers"]["api-key"] == "secret-key"
+    assert kwargs["json"]["sender"] == {"email": "alerts@medradar.example", "name": "MedRadar"}
+    assert kwargs["json"]["htmlContent"] == "<p>Text</p>"
+
+    with pytest.raises(MailError) as error:
+        mailer.send("refused@example.com", "Subject", "Text", "<p>Text</p>")
+    assert "401" in str(error.value) and "secret-key" not in str(error.value)

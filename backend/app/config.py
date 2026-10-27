@@ -59,6 +59,16 @@ ARABIC_SEARCH_MODE = os.environ.get("ARABIC_SEARCH_MODE", "").strip().lower() or
 if ARABIC_SEARCH_MODE not in ARABIC_SEARCH_MODES:
     raise RuntimeError(f"ARABIC_SEARCH_MODE must be one of: {', '.join(ARABIC_SEARCH_MODES)}")
 
+# Alert emails, sent with the Brevo API (free plan: 300 emails a day). Without
+# EMAIL_API_KEY no email is sent and the app hides the alert form.
+# "fake" is for the tests and the end-to-end demo only: emails are kept in memory.
+EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "brevo").strip().lower() or "brevo"
+EMAIL_API_KEY = os.environ.get("EMAIL_API_KEY", "").strip()
+# The sender, verified in the Brevo account (Senders, domains & dedicated IPs)
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "").strip()
+EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "").strip() or "MedRadar"
+EMAIL_TIMEOUT_SECONDS = 15
+
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = 7
 JWT_MIN_SECRET_LENGTH = 32

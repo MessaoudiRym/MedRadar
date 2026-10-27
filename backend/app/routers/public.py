@@ -102,7 +102,9 @@ def availability(
 @router.post("/alerts", response_model=AlertOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 def create_alert(request: Request, data: AlertIn, db: Session = Depends(get_db)):
-    """Be told when the medicine is back in stock nearby (emails will come later)."""
+    """Be emailed once when the medicine, or an exact equivalent, is declared in stock nearby."""
+    if request.app.state.mailer is None:
+        raise HTTPException(status_code=503, detail="Les alertes par email ne sont pas disponibles.")
     medicine = get_medicine_or_404(request, data.medicament_id)
     active = Alert.email == data.email, Alert.sent_at.is_(None)
     if db.scalar(select(Alert.id).where(*active, Alert.medicine_id == medicine["id"])):

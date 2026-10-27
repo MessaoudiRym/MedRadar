@@ -152,6 +152,7 @@ class Equivalents(BaseModel):
 class Features(BaseModel):
     photo_recognition: bool
     delivery_scan: bool
+    email_alerts: bool
 
 
 class TextRead(BaseModel):

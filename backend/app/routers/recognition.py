@@ -70,7 +70,8 @@ async def read_photo(request: Request) -> bytes:
 def features(request: Request):
     """What this server can do: the app hides the buttons of what is off."""
     return {"photo_recognition": request.app.state.reader is not None,
-            "delivery_scan": request.app.state.delivery_reader is not None}
+            "delivery_scan": request.app.state.delivery_reader is not None,
+            "email_alerts": request.app.state.mailer is not None}
 
 
 @router.post(

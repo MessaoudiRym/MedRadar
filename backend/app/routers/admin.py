@@ -2,10 +2,11 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
+from ..alerts import send_alerts
 from ..db import get_db, utcnow
 from ..delivery.schemas import DeliveryStats
 from ..models import (PHARMACY_PENDING, PHARMACY_REJECTED, PHARMACY_SUSPENDED,
@@ -43,8 +44,8 @@ def list_pharmacies(statut: PharmacyStatus | None = Query(None), db: Session = D
 
 
 @router.post("/pharmacies/{pharmacy_id}/approve", response_model=AdminPharmacy)
-def approve(pharmacy_id: int, admin: User = Depends(require_admin),
-            db: Session = Depends(get_db)):
+def approve(request: Request, pharmacy_id: int, background_tasks: BackgroundTasks,
+            admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     pharmacy = _get_pharmacy(db, pharmacy_id)
     _check_transition(pharmacy, {PHARMACY_PENDING, PHARMACY_REJECTED, PHARMACY_SUSPENDED},
                       "valider")
@@ -53,6 +54,9 @@ def approve(pharmacy_id: int, admin: User = Depends(require_admin),
     pharmacy.validated_at = utcnow()
     pharmacy.validated_by = admin.id
     db.commit()
+    # Its stock is now visible to patients: alerts waiting for it can be answered
+    background_tasks.add_task(send_alerts, request.app.state.mailer, request.app.state.store,
+                              pharmacy.id)
     return pharmacy
 
 
