@@ -19,6 +19,9 @@ os.environ.pop("FRONTEND_URL", None)
 # Empty values also stop the .env file from setting a real key.
 os.environ["LLM_PROVIDER"] = "gemini"
 os.environ["LLM_API_KEY"] = ""
+# Alert emails go to the simulated sender: kept in memory, never sent
+os.environ["EMAIL_PROVIDER"] = "fake"
+os.environ["EMAIL_API_KEY"] = ""
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
@@ -181,6 +184,17 @@ def fake_delivery_reader(client):
         return reader
     yield install
     client.app.state.delivery_reader = None
+
+
+@pytest.fixture
+def mailer(client):
+    """The simulated email sender, emptied: mailer.sent lists the emails "sent"."""
+    sender = client.app.state.mailer
+    sender.sent.clear()
+    sender.fail = False
+    yield sender
+    sender.sent.clear()
+    sender.fail = False
 
 
 @pytest.fixture

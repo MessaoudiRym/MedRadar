@@ -61,6 +61,7 @@ export interface Equivalents {
 export interface Features {
   photo_recognition: boolean;
   delivery_scan: boolean;
+  email_alerts: boolean;
 }
 
 export type RecognitionMatch = "exacte" | "probable" | "à vérifier";

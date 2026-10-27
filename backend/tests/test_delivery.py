@@ -623,3 +623,13 @@ def test_messy_model_fields_still_match(client, pharmacist, fake_delivery_reader
     line = scan(client, headers).json()["lignes"][0]
     assert line["correspondance"] == "exacte"
     assert line["medicament"]["id"] == find_medicine(store, "CLAMOXYL", "1000MG")["id"]
+
+
+def test_confirm_sends_the_alert_emails(client, pharmacist, store, mailer):
+    headers, _ = pharmacist
+    tegretol = find_medicine(store, "TEGRETOL", "200MG")["id"]
+    assert client.post("/alerts", json={"email": "patient@example.com", "medicament_id": tegretol,
+                                        "lat": 35.697, "lng": -0.633}).status_code == 201
+    result = scan(client, headers).json()
+    assert confirm(client, headers, result).status_code == 200
+    assert [e["to"] for e in mailer.sent] == ["patient@example.com"]

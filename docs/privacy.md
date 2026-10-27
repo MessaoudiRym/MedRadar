@@ -10,7 +10,8 @@ Patients do not need an account.
 | --- | --- | --- |
 | Searches | Know which medicines are hard to find, and where | **Anonymous**: the medicine and, at most, the district (e.g. "USTO"). No name, no account, no IP address, no exact position. |
 | Position sent with a search | Sort pharmacies by distance | Used for the answer, then forgotten. Only the nearest district may be kept (see above). |
-| Alerts (email, medicine, area) | Tell the patient when the medicine is back nearby | The position is rounded to about 1 km. At most 5 active alerts per email. |
+| Alerts (email, medicine, area) | Tell the patient when the medicine is back nearby | The position is rounded to about 1 km. At most 5 active alerts per email. One email is sent, then the alert is finished. |
+| The email address is given to Brevo | Only to send that email | Brevo is the email service MedRadar uses. It receives the address, the medicine and the pharmacy in the email, nothing else. |
 
 ### Photos of medicine boxes
 

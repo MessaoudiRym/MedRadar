@@ -5,12 +5,13 @@ no route takes a pharmacy id from the client, so a pharmacist cannot write
 for another pharmacy.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..alerts import send_alerts
 from ..db import get_db, utcnow
-from ..models import (PHARMACY_PENDING, PHARMACY_REJECTED, PHARMACY_VALIDATED, SOURCE_MANUAL,
+from ..models import (PHARMACY_PENDING, PHARMACY_REJECTED, PHARMACY_VALIDATED, SOURCE_MANUAL, STOCK_IN,
                       DeliveryLine, DeliveryNote, Pharmacy, StockDeclaration, TrackedMedicine,
                       User)
 from ..schemas import (DeclarationOut, OwnPharmacy, PharmacyUpdate, StockBulkIn,
@@ -57,6 +58,14 @@ def _check_medicines(request, medicine_ids):
                             detail=f"Médicament introuvable : {', '.join(unknown)}")
 
 
+def notify_alerts(request, background_tasks, pharmacy, items):
+    """After the response: email the patients waiting for a medicine now in stock."""
+    in_stock = {i.medicament_id for i in items if i.statut == STOCK_IN}
+    if in_stock:
+        background_tasks.add_task(send_alerts, request.app.state.mailer, request.app.state.store,
+                                  pharmacy.id, in_stock)
+
+
 def _declare(db, pharmacy, user, items, source=SOURCE_MANUAL, bon_id=None, commit=True):
     """Add declarations (history is kept) and track the medicines.
 
@@ -84,21 +93,25 @@ def _declare(db, pharmacy, user, items, source=SOURCE_MANUAL, bon_id=None, commi
 
 
 @router.post("/stock", response_model=DeclarationOut, status_code=status.HTTP_201_CREATED)
-def declare_stock(request: Request, data: StockDeclarationIn,
+def declare_stock(request: Request, data: StockDeclarationIn, background_tasks: BackgroundTasks,
                   pharmacy: Pharmacy = Depends(get_validated_pharmacy),
                   user: User = Depends(require_pharmacist), db: Session = Depends(get_db)):
     _check_medicines(request, [data.medicament_id])
-    return _declare(db, pharmacy, user, [data])[0]
+    declared = _declare(db, pharmacy, user, [data])[0]
+    notify_alerts(request, background_tasks, pharmacy, [data])
+    return declared
 
 
 @router.post("/stock/bulk", response_model=list[DeclarationOut],
              status_code=status.HTTP_201_CREATED)
-def declare_stock_bulk(request: Request, data: StockBulkIn,
+def declare_stock_bulk(request: Request, data: StockBulkIn, background_tasks: BackgroundTasks,
                        pharmacy: Pharmacy = Depends(get_validated_pharmacy),
                        user: User = Depends(require_pharmacist), db: Session = Depends(get_db)):
     """Up to 50 declarations; all are saved, or none if one medicine is unknown."""
     _check_medicines(request, [d.medicament_id for d in data.declarations])
-    return _declare(db, pharmacy, user, data.declarations)
+    declared = _declare(db, pharmacy, user, data.declarations)
+    notify_alerts(request, background_tasks, pharmacy, data.declarations)
+    return declared
 
 
 @router.get("/stock", response_model=list[TrackedStock])

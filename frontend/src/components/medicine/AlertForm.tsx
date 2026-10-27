@@ -51,8 +51,8 @@ export function AlertForm({ medicineId, medicineName, position, radiusKm }: Prop
       {state.status === "done" ? (
         <Notice tone="success" title="Your alert is saved" role="status">
           <p>
-            We will email <strong>{email.trim()}</strong> when {titleCase(medicineName)} is declared in stock within{" "}
-            {radiusKm} km.
+            We will email <strong>{email.trim()}</strong> once, when {titleCase(medicineName)} or an exact equivalent is
+            declared in stock within {radiusKm} km.
           </p>
         </Notice>
       ) : (

@@ -18,6 +18,7 @@ from slowapi.errors import RateLimitExceeded
 from .config import ARABIC_SEARCH_MODE, FRONTEND_URL, jwt_secret
 from .data import load_store
 from .limiter import limiter
+from .mail import make_mailer
 from .delivery import make_delivery_reader
 from .delivery.history import CLEANUP_EVERY, run_cleanup
 from .routers import admin, auth, deliveries, delivery, medicines, pharmacist, public, recognition
@@ -57,6 +58,7 @@ async def lifespan(app: FastAPI):
     app.state.search_mode = ARABIC_SEARCH_MODE
     app.state.reader = make_reader()  # None: photo recognition is off
     app.state.delivery_reader = make_delivery_reader()  # None: delivery note scan is off
+    app.state.mailer = make_mailer()  # None: alert emails are off
     cleanup = asyncio.create_task(clean_every_day())  # expired scans, old history
     yield
     cleanup.cancel()

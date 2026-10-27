@@ -33,6 +33,17 @@ test("the medicine page shows equivalents, nearby pharmacies and the map", async
   for (const label of ["In stock", "Out of stock", "No information"]) await expect(legend).toContainText(label);
 });
 
+test("a patient can ask for an email alert", async ({ page }, testInfo) => {
+  // One email per device: a second alert on the same medicine is refused
+  const email = `patient.${testInfo.project.name}@example.com`;
+  await page.goto(`/medicament/${GLUCOPHAGE_850}`);
+  const alert = page.getByRole("region", { name: "Tell me when it’s back" });
+  await alert.getByLabel("Your email").fill(email);
+  await alert.getByRole("button", { name: "Notify me" }).click();
+  await expect(alert.getByRole("status")).toContainText("Your alert is saved");
+  await expect(alert.getByRole("status")).toContainText(email);
+});
+
 test("a modified-release medicine without equivalent says so", async ({ page }) => {
   await page.goto("/");
   await search(page, "diamicron");

@@ -10,7 +10,7 @@ import { MedicineDetails } from "./MedicineDetails";
 import { NearbyPharmacies } from "./NearbyPharmacies";
 import { api, ApiError, errorMessage } from "@/lib/api";
 import { useLocation } from "@/lib/location";
-import type { Availability, Equivalents, Medicine, PublicPharmacy } from "@/lib/types";
+import type { Availability, Equivalents, Features, Medicine, PublicPharmacy } from "@/lib/types";
 import { useAsync } from "@/lib/useAsync";
 
 /** The medicine page: details, pharmacies nearby, equivalents and alert. */
@@ -27,6 +27,9 @@ export function MedicineView({ id }: { id: string }) {
     [id, lat, lng, radiusKm],
   );
   const pharmacies = useAsync((signal) => api<PublicPharmacy[]>("/pharmacies", { signal }), []);
+  // The alert form is hidden while the server cannot send emails
+  const features = useAsync((signal) => api<Features>("/features", { signal }), []);
+  const alerts = features.status === "success" && features.data.email_alerts;
 
   // Number of nearby pharmacies with each equivalent brand in stock
   const stockByBrand = useMemo(() => {
@@ -83,9 +86,11 @@ export function MedicineView({ id }: { id: string }) {
         <a href="#equivalents" className={buttonClass("secondary", "sm")}>
           Equivalents{count !== null ? ` (${count})` : ""}
         </a>
-        <a href="#alert" className={buttonClass("secondary", "sm")}>
-          Get an alert
-        </a>
+        {alerts && (
+          <a href="#alert" className={buttonClass("secondary", "sm")}>
+            Get an alert
+          </a>
+        )}
       </nav>
 
       <NearbyPharmacies
@@ -99,12 +104,14 @@ export function MedicineView({ id }: { id: string }) {
 
       <EquivalentsSection equivalents={equivalents} stockByBrand={stockByBrand} />
 
-      <AlertForm
-        medicineId={medicine.data.id}
-        medicineName={medicine.data.nom_marque}
-        position={geo.location.position}
-        radiusKm={radiusKm}
-      />
+      {alerts && (
+        <AlertForm
+          medicineId={medicine.data.id}
+          medicineName={medicine.data.nom_marque}
+          position={geo.location.position}
+          radiusKm={radiusKm}
+        />
+      )}
     </div>
   );
 }
