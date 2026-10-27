@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test --project=desktop --project=mobile",
-    "screenshots": "playwright test --project=screenshots"
+    "screenshots": "playwright test --project=screenshots",
+    "test:prod": "playwright test --config=playwright.production.config.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
