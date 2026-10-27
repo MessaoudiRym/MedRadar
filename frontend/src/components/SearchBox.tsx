@@ -12,6 +12,8 @@ import type { MedicineSummary } from "@/lib/types";
 
 const DEBOUNCE_MS = 250;
 const MIN_LENGTH = 2;
+// Same limit as the API: a longer query would be refused
+export const MAX_QUERY_LENGTH = 100;
 
 type Results =
   | { status: "idle" }
@@ -147,6 +149,7 @@ export function SearchBox({
             spellCheck={false}
             enterKeyHint="search"
             value={query}
+            maxLength={MAX_QUERY_LENGTH}
             placeholder={placeholder}
             dir="auto"
             onChange={(e) => {
