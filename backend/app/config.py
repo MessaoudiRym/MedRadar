@@ -15,7 +15,12 @@ load_dotenv(PROJECT_ROOT / ".env", override=False)
 
 
 def _database_url():
-    url = os.environ.get("DATABASE_URL", "sqlite:///backend/medradar.db")
+    url = os.environ.get("DATABASE_URL", "").strip() or "sqlite:///backend/medradar.db"
+    # Hosts (Neon, Render, Supabase...) give postgres:// or postgresql:// URLs:
+    # SQLAlchemy needs the name of the driver installed (psycopg 3)
+    for scheme in ("postgres://", "postgresql://"):
+        if url.startswith(scheme):
+            url = "postgresql+psycopg://" + url[len(scheme):]
     # A relative SQLite path is relative to the project root, whatever the current folder
     prefix = "sqlite:///"
     if url.startswith(prefix) and not Path(url[len(prefix):]).is_absolute():

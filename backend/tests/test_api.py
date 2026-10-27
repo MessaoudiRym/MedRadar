@@ -93,3 +93,14 @@ def test_internal_error_returns_no_technical_trace(client, monkeypatch):
     assert response.status_code == 500
     assert response.json() == {"detail": "Erreur interne du serveur."}
     assert "secret" not in response.text and "Traceback" not in response.text
+
+
+def test_database_url_of_hosted_postgresql_uses_psycopg(monkeypatch):
+    from app.config import _database_url
+
+    for given in ("postgres://u:p@host:5432/db", "postgresql://u:p@host:5432/db",
+                  "postgresql+psycopg://u:p@host:5432/db"):
+        monkeypatch.setenv("DATABASE_URL", given)
+        assert _database_url() == "postgresql+psycopg://u:p@host:5432/db"
+    monkeypatch.setenv("DATABASE_URL", "")
+    assert _database_url().endswith("/backend/medradar.db")
