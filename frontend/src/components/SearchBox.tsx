@@ -42,7 +42,7 @@ interface SearchBoxProps {
  */
 export function SearchBox({
   label = "Name of the medicine or active ingredient",
-  placeholder = "Medicine name (French, Arabic, Darija…)",
+  placeholder = "e.g. Glucophage",
   onSelect,
   size = "lg",
   inputRef,
