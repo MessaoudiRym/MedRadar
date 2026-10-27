@@ -5,8 +5,10 @@
   are clearly fake ("Pharmacie Démo ...", 0550 00 00 XX).
 - 6 weeks of stock history for about 40 chronic-treatment medicines found in
   the cleaned nomenclature, with realistic shortages on 9 of them.
-- 3 demo pharmacist accounts (pharmacien1@medradar.demo ...), password read
-  from DEMO_PHARMACIST_PASSWORD.
+- 4 demo pharmacist accounts (pharmacien1@medradar.demo ...), password read
+  from DEMO_PHARMACIST_PASSWORD. pharmacien4 owns one more validated pharmacy
+  with nothing in it (no stock, no history), for a jury who wants to start from
+  scratch.
 - 4 fictional delivery notes in the history of the first demo pharmacy, over
   the last 3 weeks, from 2 fictional wholesalers: one with its photo, one
   cancelled. (Demo notes do not change the stock history above.)
@@ -49,6 +51,7 @@ NB_SHORTAGES = 9
 HISTORY_DAYS = 42
 SHORTAGE_DAYS = 14
 DEMO_EMAIL_DOMAIN = "@medradar.demo"
+EMPTY_PHARMACY_DISTRICT = "Akid Lotfi"
 
 COMMUNES = {
     "Bir El Djir": "Bir El Djir", "USTO": "Bir El Djir", "Canastel": "Bir El Djir",
@@ -146,9 +149,28 @@ def create_pharmacies(db, rng):
     return pharmacies
 
 
+def create_empty_pharmacy(db):
+    """Validated, with no stock and no history. Fixed position: the random
+    pharmacies above stay the same as before it existed."""
+    lat, lng = ORAN_DISTRICTS[EMPTY_PHARMACY_DISTRICT]
+    pharmacy = Pharmacy(
+        name=f"Pharmacie Démo {EMPTY_PHARMACY_DISTRICT} (vide)",
+        address=f"Adresse fictive n°{NB_VALIDATED + NB_PENDING + 1}, "
+                f"{EMPTY_PHARMACY_DISTRICT}, Oran",
+        commune="Oran", district=EMPTY_PHARMACY_DISTRICT,
+        latitude=lat + 0.004, longitude=lng - 0.004,  # about 500 m from the district centre
+        phone="0550000099", professional_number="DEMO-0099",
+        status=PHARMACY_VALIDATED, is_demo=True, validated_at=utcnow(),
+    )
+    db.add(pharmacy)
+    db.flush()
+    return pharmacy
+
+
 def create_accounts(db, pharmacies, password):
-    # Two validated pharmacies, and one pending (to show "en cours de vérification")
-    owned = [pharmacies[0], pharmacies[1], pharmacies[NB_VALIDATED]]
+    # Two validated pharmacies with stock, one pending (to show "en cours de
+    # vérification"), and one validated with nothing in it
+    owned = [pharmacies[0], pharmacies[1], pharmacies[NB_VALIDATED], create_empty_pharmacy(db)]
     users = []
     for n, pharmacy in enumerate(owned, start=1):
         user = User(email=f"pharmacien{n}{DEMO_EMAIL_DOMAIN}", password_hash=hash_password(password),
@@ -311,7 +333,8 @@ def main():
         nb_notes = create_delivery_history(db, store, pharmacies[0], users[0])
         db.commit()
 
-    print(f"Demo pharmacies : {NB_VALIDATED} validated + {NB_PENDING} pending (all fictional)")
+    print(f"Demo pharmacies : {NB_VALIDATED} validated + {NB_PENDING} pending "
+          f"+ 1 validated and empty (all fictional)")
     print(f"Demo accounts   : {', '.join(u.email for u in users)}")
     print(f"Medicines       : {len(medicines)} ({nb_tracked} tracked pairs, "
           f"{nb_declarations} stock declarations over {HISTORY_DAYS} days)")

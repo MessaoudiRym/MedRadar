@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { DEMO_PHARMACIST } from "./config";
+import { DEMO_PHARMACIST, EMPTY_DEMO_PHARMACIST } from "./config";
 import { login } from "./helpers";
 
 test("a demo pharmacist marks a medicine out of stock, then in stock", async ({ page }) => {
@@ -22,6 +22,13 @@ test("a demo pharmacist marks a medicine out of stock, then in stock", async ({ 
   await page.reload();
   const again = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name, exact: true }) });
   await expect(again.getByRole("button", { name: "In stock", exact: true })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("the empty demo account is approved, with nothing in its pharmacy", async ({ page }) => {
+  await login(page, EMPTY_DEMO_PHARMACIST);
+  await expect(page).toHaveURL(/\/pharmacien$/);
+  await expect(page.getByText("Approved: patients can see your pharmacy")).toBeVisible();
+  await expect(page.getByText("You don't follow any medicine yet")).toBeVisible();
 });
 
 test("registration with an invalid phone shows an error", async ({ page }) => {
