@@ -4,10 +4,12 @@ Run from the backend/ folder:
     uvicorn app.main:app --reload
 """
 
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -16,7 +18,10 @@ from slowapi.errors import RateLimitExceeded
 from .config import ARABIC_SEARCH_MODE, FRONTEND_URL, jwt_secret
 from .data import load_store
 from .limiter import limiter
-from .routers import admin, auth, medicines, pharmacist, public, recognition
+from .delivery import make_delivery_reader
+from .delivery.history import CLEANUP_EVERY, run_cleanup
+from .routers import admin, auth, deliveries, delivery, medicines, pharmacist, public, recognition
+from .routers.delivery import ScanFailed
 from .routers.recognition import RecognitionFailed
 from .llm import make_interpreter
 from .search import SearchIndex
@@ -51,7 +56,22 @@ async def lifespan(app: FastAPI):
     app.state.interpreter = make_interpreter()  # None: the search uses rules only
     app.state.search_mode = ARABIC_SEARCH_MODE
     app.state.reader = make_reader()  # None: photo recognition is off
+    app.state.delivery_reader = make_delivery_reader()  # None: delivery note scan is off
+    cleanup = asyncio.create_task(clean_every_day())  # expired scans, old history
     yield
+    cleanup.cancel()
+    with suppress(asyncio.CancelledError):
+        await cleanup
+
+
+async def clean_every_day():
+    """Delivery notes: unconfirmed scans, then photos and notes past their retention."""
+    while True:
+        try:
+            await run_in_threadpool(run_cleanup)
+        except Exception:
+            logger.exception("Delivery cleanup failed")
+        await asyncio.sleep(CLEANUP_EVERY.total_seconds())
 
 
 app = FastAPI(
@@ -98,8 +118,9 @@ async def rate_limited(request: Request, exc: RateLimitExceeded):
                         content={"detail": "Trop de tentatives. Réessayez dans une minute."})
 
 
+@app.exception_handler(ScanFailed)
 @app.exception_handler(RecognitionFailed)
-async def recognition_failed(request: Request, exc: RecognitionFailed):
+async def recognition_failed(request: Request, exc: RecognitionFailed | ScanFailed):
     return JSONResponse(status_code=exc.status, content={"detail": exc.message, "code": exc.code})
 
 
@@ -110,5 +131,5 @@ async def unexpected_error(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Erreur interne du serveur."})
 
 
-for module in (medicines, recognition, public, auth, pharmacist, admin):
+for module in (medicines, recognition, public, auth, pharmacist, delivery, deliveries, admin):
     app.include_router(module.router)

@@ -102,6 +102,23 @@ export default function PrivacyPage() {
           Passwords are never stored: only a secure fingerprint (bcrypt hash) is kept, and passwords are never
           sent back by MedRadar.
         </p>
+        <h3 className="pt-2 text-xl font-bold">Delivery notes</h3>
+        <ul className="list-disc space-y-2 pl-6">
+          <li>
+            Photos of a delivery note are sent to <strong>Google (Gemini API, free tier) only to read the note</strong>.
+            Google may use data sent to the free tier to improve its services.
+          </li>
+          <li>Nothing is put in stock until the pharmacist confirms. An unconfirmed reading is deleted after 1 hour.</li>
+          <li>
+            If the pharmacist chooses to keep the note, MedRadar keeps the detail of its lines{" "}
+            <strong>without any price</strong> for 24 months, and its photo only if asked, for 90 days. Only the
+            pharmacy can see them: never other pharmacies, never the MedRadar team.
+          </li>
+          <li>
+            The pharmacist can delete a photo or a note at any time. Deleting the pharmacy&apos;s account deletes its
+            whole history.
+          </li>
+        </ul>
       </section>
 
       <section className="space-y-3">

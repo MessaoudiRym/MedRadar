@@ -4,7 +4,7 @@
 import { type Browser, devices, expect, type Page, test } from "@playwright/test";
 
 import { DEMO_PHARMACIST, GLUCOPHAGE_850 } from "./config";
-import { login, readTestBox, search, searchAndValidate } from "./helpers";
+import { login, readTestBox, scanDemoNote, search, searchAndValidate } from "./helpers";
 
 const OUT = "../docs/screenshots";
 const SIZES = {
@@ -79,3 +79,36 @@ for (const size of ["desktop", "mobile"] as const) {
     await page.screenshot({ path: `${OUT}/dashboard-${size}.png`, fullPage: false });
   });
 }
+
+// Delivery note screens, on a phone
+test("delivery note (mobile)", async ({ browser }) => {
+  const page = await open(browser, "mobile");
+  page.on("dialog", (dialog) => dialog.accept());
+  await login(page, DEMO_PHARMACIST);
+  await expect(page.getByRole("heading", { name: "Your stock" })).toBeVisible();
+  await scanDemoNote(page);
+  await page.getByRole("checkbox", { name: /Also keep the photo/ }).check();
+  await page.getByRole("checkbox", { name: /Keep this note in my history/ }).scrollIntoViewIfNeeded();
+  await page.mouse.wheel(0, -260);
+  await settle(page);
+  await page.screenshot({ path: `${OUT}/delivery-review-mobile.png` });
+  await page.getByRole("heading", { name: "Check the note" }).scrollIntoViewIfNeeded();
+  await settle(page);
+  await page.screenshot({ path: `${OUT}/delivery-review-top-mobile.png` });
+
+  await page.getByRole("button", { name: /Put the \d+ ticked medicines in stock/ }).click();
+  await expect(page.getByRole("heading", { name: "Stock updated" })).toBeVisible();
+  await settle(page);
+  await page.screenshot({ path: `${OUT}/delivery-success-mobile.png` });
+
+  await page.getByRole("link", { name: "See this note" }).click();
+  await expect(page.getByRole("img", { name: /Photo of the delivery note/ })).toBeVisible();
+  await settle(page);
+  await page.screenshot({ path: `${OUT}/delivery-detail-mobile.png` });
+
+  await page.getByRole("link", { name: "All delivery notes" }).click();
+  await expect(page.getByRole("link", { name: /N° BL-2026-10458/ })).toBeVisible();
+  await page.getByText(/\d+ notes?$/).scrollIntoViewIfNeeded();
+  await settle(page);
+  await page.screenshot({ path: `${OUT}/delivery-history-mobile.png` });
+});

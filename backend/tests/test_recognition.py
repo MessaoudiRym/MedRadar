@@ -48,7 +48,7 @@ def attempts():
 
 def test_off_without_api_key(client):
     assert client.app.state.reader is None  # conftest: LLM_API_KEY is empty
-    assert client.get("/features").json() == {"photo_recognition": False}
+    assert client.get("/features").json()["photo_recognition"] is False
     response = send(client, photo())
     assert response.status_code == 503
     assert response.json()["code"] == "desactivee"
@@ -58,7 +58,7 @@ def test_off_without_api_key(client):
 
 def test_on_with_a_reader(client, fake_reader):
     fake_reader()
-    assert client.get("/features").json() == {"photo_recognition": True}
+    assert client.get("/features").json()["photo_recognition"] is True
 
 
 # --------------------------------------------------------------------------

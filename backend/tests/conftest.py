@@ -170,6 +170,20 @@ def fake_interpreter(client):
 
 
 @pytest.fixture
+def fake_delivery_reader(client):
+    """Install a simulated delivery note reader (no real model); returns a setter.
+    Without answers, it "reads" the demo note."""
+    from app.delivery.fake import FakeDeliveryReader
+
+    def install(*answers):
+        reader = FakeDeliveryReader(*answers)
+        client.app.state.delivery_reader = reader
+        return reader
+    yield install
+    client.app.state.delivery_reader = None
+
+
+@pytest.fixture
 def store(client):
     return client.app.state.store
 

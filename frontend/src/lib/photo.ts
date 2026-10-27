@@ -11,18 +11,18 @@ const JPEG_QUALITY = 0.85;
 const RECOGNIZE_TIMEOUT_MS = 45_000;
 
 /**
- * JPEG, at most 1600 px on the longest side, upright. Drawing on a canvas also
+ * JPEG, at most maxSide px (1600 by default) on the longest side, upright. Drawing on a canvas also
  * drops the metadata (a phone photo can contain the GPS position).
  * A file the browser cannot draw is sent as is: the API checks its real type.
  */
-export async function compressPhoto(file: Blob): Promise<Blob> {
+export async function compressPhoto(file: Blob, maxSide = MAX_SIDE): Promise<Blob> {
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   } catch {
     return file;
   }
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);

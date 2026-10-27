@@ -29,3 +29,23 @@ export async function searchAndValidate(page: Page, text: string) {
   await box.press("Enter");
   await expect(page).toHaveURL(/\/recherche\?q=/);
 }
+
+/** Token of the logged-in user, to check the API directly (no extra login). */
+export async function sessionToken(page: Page): Promise<string> {
+  const raw = await page.evaluate(() => sessionStorage.getItem("medradar.session"));
+  return JSON.parse(raw ?? "{}").token;
+}
+
+/** From the dashboard: scan the demo note, choose TAHOR 20 mg for the line to check. */
+export async function scanDemoNote(page: Page) {
+  await page.getByRole("link", { name: "Scan a delivery note" }).first().click();
+  await expect(page).toHaveURL(/\/pharmacien\/scanner$/);
+  await page.getByRole("button", { name: "Try with a demo delivery note" }).click();
+  await expect(page.getByRole("img", { name: "Page 1 of the delivery note" })).toBeVisible();
+  await page.getByRole("button", { name: "Read the note (1 page)" }).click();
+  await expect(page.getByRole("heading", { name: "Check the note" })).toBeVisible();
+  const tahor = page.getByRole("listitem").filter({ hasText: "TAHOR CP B/30" });
+  // The choice replaces the list of candidates by the chosen medicine
+  await tahor.getByRole("radio", { name: /Tahor 20 mg/ }).click();
+  await expect(tahor.getByText("Chosen by you")).toBeVisible();
+}

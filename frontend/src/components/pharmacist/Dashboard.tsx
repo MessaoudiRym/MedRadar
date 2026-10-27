@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { CameraIcon } from "../icons";
 import { buttonClass, ErrorState, Loading, Notice } from "../ui";
+import { PharmacistNav } from "./PharmacistNav";
 import { StatusPanel } from "./StatusPanel";
 import { StockList } from "./StockList";
-import { errorMessage } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { LOGIN_PATH, logout, useAuthedApi } from "@/lib/auth";
-import type { Me } from "@/lib/types";
+import type { Features, Me } from "@/lib/types";
 import { useAsync } from "@/lib/useAsync";
 
 export function Dashboard() {
@@ -18,6 +20,8 @@ export function Dashboard() {
     (signal) => (session && !wrongRole ? authApi<Me>("/auth/me", { signal }) : new Promise<Me>(() => {})),
     [session?.token, wrongRole],
   );
+
+  const features = useAsync((signal) => api<Features>("/features", { signal }), []);
 
   function signOut() {
     logout("You are logged out.");
@@ -43,6 +47,7 @@ export function Dashboard() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
+      {pharmacie?.statut === "validee" && <PharmacistNav />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="font-semibold text-muted">Hello {utilisateur.prenom}</p>
@@ -64,6 +69,18 @@ export function Dashboard() {
       {pharmacie ? (
         <>
           <StatusPanel pharmacy={pharmacie} />
+          {pharmacie.statut === "validee" && features.data?.delivery_scan && (
+            <section aria-labelledby="scan-title" className="space-y-2 rounded-xl border-2 border-brand/40 bg-brand-soft p-4">
+              <h2 id="scan-title" className="text-xl font-bold">
+                Just received an order?
+              </h2>
+              <p>Take a photo of the delivery note: everything goes in stock in less than a minute, after you check it.</p>
+              <Link href="/pharmacien/scanner" className={buttonClass("primary", "lg", "w-full sm:w-auto")}>
+                <CameraIcon className="h-6 w-6" />
+                Scan a delivery note
+              </Link>
+            </section>
+          )}
           {pharmacie.statut === "validee" && <StockList authApi={authApi} />}
         </>
       ) : (

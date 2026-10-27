@@ -45,6 +45,12 @@ LLM_TIMEOUT_SECONDS = 30
 # (measured October 2026), far too few for a search box. LLM_MODEL is its fallback.
 LLM_SEARCH_MODEL = os.environ.get("LLM_SEARCH_MODEL", "").strip() or "gemini-3.5-flash-lite"
 
+# Delivery note scan (pharmacists): reading time limit of the model, and how long the
+# history kept by a pharmacist lasts (photos are deleted first, then the notes)
+DELIVERY_TIMEOUT_SECONDS = 60
+HISTORY_PHOTO_RETENTION_DAYS = int(os.environ.get("HISTORY_PHOTO_RETENTION_DAYS", "") or 90)
+HISTORY_RETENTION_MONTHS = int(os.environ.get("HISTORY_RETENTION_MONTHS", "") or 24)
+
 # Multilingual search: when the language model helps to understand a query.
 #   llm_first:   queries in Arabic, Darija, arabizi or English, and unsure French queries
 #   rules_first: only when the normal search and the transliteration rules are unsure
