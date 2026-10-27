@@ -115,13 +115,30 @@ python -m uvicorn app.main:app --reload
 | `/pharmacist/deliveries...` | pharmacist | History of kept delivery notes: list, search, detail, photos, export, corrections, deletion, cancellation |
 | `/admin/...` | admin | Check, approve, reject or suspend pharmacies |
 
-Environment variables (see `.env.example`): `DATABASE_URL`, `JWT_SECRET` (required), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEMO_PHARMACIST_PASSWORD`, `FRONTEND_URL` (production frontend allowed by CORS; `http://localhost:3000` is always allowed), the optional AI settings (`LLM_*`, `ARABIC_SEARCH_MODE`, see "Photo recognition" and "Multilingual search"), the alert emails (`EMAIL_*`, see "Email alerts"), the history retention (`HISTORY_*`) and optionally `MEDICINES_CSV`. For PostgreSQL, also install its driver: `pip install "psycopg[binary]"`.
+Environment variables (see `.env.example`): `DATABASE_URL`, `JWT_SECRET` (required), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEMO_PHARMACIST_PASSWORD`, `FRONTEND_URL` (production frontend allowed by CORS; `http://localhost:3000` is always allowed), the optional AI settings (`LLM_*`, `ARABIC_SEARCH_MODE`, see "Photo recognition" and "Multilingual search"), the alert emails (`EMAIL_*`, see "Email alerts"), the history retention (`HISTORY_*`) and optionally `MEDICINES_CSV`. For PostgreSQL, see "Production database" below.
 
 **Run the tests** from `backend/`. They use a temporary database, never the real one:
 
 ```bash
 python -m pytest
 ```
+
+### Production database (PostgreSQL)
+
+The same code runs on PostgreSQL: only `DATABASE_URL` changes. Its driver (`psycopg`) is in `backend/requirements.txt`, and the URL given by a host (`postgres://…` or `postgresql://…`) can be pasted as is.
+
+```bash
+# .env (or the host's environment variables)
+DATABASE_URL=postgresql://user:password@host:5432/medradar?sslmode=require
+
+cd backend
+python -m alembic upgrade head            # creates the tables
+cd ..
+python scripts/create_admin.py            # the admin account
+python scripts/generate_demo_data.py      # optional: demo pharmacies and accounts
+```
+
+Checked on PostgreSQL 17: migrations, demo data, search, stock, alerts, delivery notes and admin.
 
 ### Frontend
 
