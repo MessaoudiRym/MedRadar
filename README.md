@@ -33,8 +33,8 @@ Pharmacists update their stock in two taps.
 | --- | --- |
 | Frontend | Next.js, Tailwind CSS, Leaflet + OpenStreetMap |
 | Backend | FastAPI (Python) |
-| Database | PostgreSQL (pg_trgm for fuzzy search) |
-| AI | Vision LLM to read medicine box photos (returns a name, checked against the database): Google Gemini (Flash, free tier) |
+| Database | SQLite for development, PostgreSQL in production (SQLAlchemy, Alembic migrations); fuzzy search in memory with RapidFuzz |
+| AI | Google Gemini (Flash, free tier), optional: reads medicine box photos and delivery notes, and understands Arabic, Darija and English queries. Everything it returns is checked against the database |
 | Email alerts | _to be chosen_ |
 | AI coding tools | _to be listed_ |
 
@@ -53,8 +53,10 @@ MedRadar/
 
 ## Run locally
 
+Requirements: Python 3.12 and Node.js 20 or later (tested with Python 3.12.8 and Node.js 20.20).
+
 ```bash
-git clone https://github.com/<your-username>/MedRadar.git
+git clone https://github.com/MessaoudiRym/MedRadar.git
 cd MedRadar
 pip install -r requirements.txt
 python scripts/clean_nomenclature.py
@@ -100,7 +102,7 @@ python -m uvicorn app.main:app --reload
 | `GET /medicines/search?q=...&interpret=true` | public | Validated search in French, Arabic, Darija or English: `results`, how the query was understood (`interpretation`) and a `message` (see "Multilingual search") |
 | `GET /medicines/{id}` | public | Full details of one medicine |
 | `GET /medicines/{id}/equivalents` | public | The medicine, its equivalents and a safety notice |
-| `GET /features` | public | Which optional features are on (`photo_recognition`) |
+| `GET /features` | public | Which optional features are on (`photo_recognition`, `delivery_scan`) |
 | `POST /medicines/recognize` | public | Photo of a medicine box (multipart, field `photo`) → what was read and up to 3 medicines to confirm. 10 photos per hour |
 | `GET /medicines/{id}/availability?lat=&lng=&radius_km=10` | public | Validated pharmacies that have the medicine or an equivalent, nearest first |
 | `GET /pharmacies` | public | Validated pharmacies, without personal data |
@@ -113,7 +115,7 @@ python -m uvicorn app.main:app --reload
 | `/pharmacist/deliveries...` | pharmacist | History of kept delivery notes: list, search, detail, photos, export, corrections, deletion, cancellation |
 | `/admin/...` | admin | Check, approve, reject or suspend pharmacies |
 
-Environment variables (see `.env.example`): `DATABASE_URL`, `JWT_SECRET` (required), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEMO_PHARMACIST_PASSWORD`, `FRONTEND_URL` (production frontend allowed by CORS; `http://localhost:3000` is always allowed) and optionally `MEDICINES_CSV`.
+Environment variables (see `.env.example`): `DATABASE_URL`, `JWT_SECRET` (required), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEMO_PHARMACIST_PASSWORD`, `FRONTEND_URL` (production frontend allowed by CORS; `http://localhost:3000` is always allowed), the optional AI settings (`LLM_*`, `ARABIC_SEARCH_MODE`, see "Photo recognition" and "Multilingual search"), the history retention (`HISTORY_*`) and optionally `MEDICINES_CSV`. For PostgreSQL, also install its driver: `pip install "psycopg[binary]"`.
 
 **Run the tests** from `backend/`. They use a temporary database, never the real one:
 
@@ -141,9 +143,10 @@ Open http://localhost:3000. The interface is in English and works on phones. Pag
 | `/medicament/{id}` | The medicine, pharmacies that have it near you on a map, its equivalents, and an alert form |
 | `/pharmacien/inscription`, `/pharmacien/connexion` | Pharmacist registration (2 steps) and login |
 | `/pharmacien` | Pharmacist dashboard: pharmacy status and one-tap stock updates |
+| `/pharmacien/pharmacie` | Edit the pharmacy's phone, opening hours, address and position |
 | `/pharmacien/scanner` | Scan a delivery note, check it, put it in stock |
 | `/pharmacien/historique` | Delivery notes kept by the pharmacy, and their detail |
-| `/admin` | Admin: verify, approve, reject or suspend pharmacies |
+| `/admin` | Admin: verify, approve, reject or suspend pharmacies (log in on `/pharmacien/connexion` with the admin account) |
 | `/confidentialite` | Privacy policy |
 
 `NEXT_PUBLIC_API_URL` is the URL of the API. It is read when the app is built, so run `npm run build` again after changing it.
@@ -174,6 +177,16 @@ Screenshots of the main screens are in [docs/screenshots/](docs/screenshots/).
 Admin accounts are only created by `scripts/create_admin.py`; no API route can create one. See [docs/privacy.md](docs/privacy.md) for the data stored.
 
 **Demo data.** The 40 demo pharmacies, their stock levels and the demo pharmacist accounts are simulated and fictional: names, addresses and phone numbers (0550 00 00 XX) are made up, and positions are random points in real Oran districts. API responses say so (`"demo_data": true`). Only the medicines and their equivalents come from official data.
+
+Demo logins, on http://localhost:3000/pharmacien/connexion, all with the password `DEMO_PHARMACIST_PASSWORD` from `.env`:
+
+| Account | Pharmacy |
+| --- | --- |
+| `pharmacien1@medradar.demo` | Approved, with 4 delivery notes in its history |
+| `pharmacien2@medradar.demo` | Approved |
+| `pharmacien3@medradar.demo` | Waiting for verification (cannot declare stock) |
+
+The admin account is the one of `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 
 ## How equivalents are found
 
