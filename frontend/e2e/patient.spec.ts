@@ -64,3 +64,14 @@ test("the map still works after the browser Back button", async ({ page }) => {
   await expect(page.getByText("Something went wrong")).toHaveCount(0);
   expect(crashes).toEqual([]);
 });
+
+test("far from Oran, the position falls back to Oran city centre", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 36.7538, longitude: 3.0588 }); // Algiers
+  await page.goto(`/medicament/${GLUCOPHAGE_850}`);
+  await page.getByRole("button", { name: /my position/ }).click();
+
+  await expect(page.getByText("You are far from Oran.")).toBeVisible();
+  await expect(page.getByText(/Pharmacies around/).first()).toContainText("Oran city centre");
+  await expect(page.locator(".marker-pin--stock").first()).toBeVisible();
+});
