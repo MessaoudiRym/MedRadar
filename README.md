@@ -35,7 +35,7 @@ Pharmacists update their stock in two taps.
 | Backend | FastAPI (Python) |
 | Database | SQLite for development, PostgreSQL in production (SQLAlchemy, Alembic migrations); fuzzy search in memory with RapidFuzz |
 | AI | Google Gemini (Flash, free tier), optional: reads medicine box photos and delivery notes, and understands Arabic, Darija and English queries. Everything it returns is checked against the database |
-| Email alerts | _to be chosen_ |
+| Email alerts | Brevo API (free plan, 300 emails a day), optional |
 | AI coding tools | _to be listed_ |
 
 ## Project structure
@@ -102,11 +102,11 @@ python -m uvicorn app.main:app --reload
 | `GET /medicines/search?q=...&interpret=true` | public | Validated search in French, Arabic, Darija or English: `results`, how the query was understood (`interpretation`) and a `message` (see "Multilingual search") |
 | `GET /medicines/{id}` | public | Full details of one medicine |
 | `GET /medicines/{id}/equivalents` | public | The medicine, its equivalents and a safety notice |
-| `GET /features` | public | Which optional features are on (`photo_recognition`, `delivery_scan`) |
+| `GET /features` | public | Which optional features are on (`photo_recognition`, `delivery_scan`, `email_alerts`) |
 | `POST /medicines/recognize` | public | Photo of a medicine box (multipart, field `photo`) → what was read and up to 3 medicines to confirm. 10 photos per hour |
 | `GET /medicines/{id}/availability?lat=&lng=&radius_km=10` | public | Validated pharmacies that have the medicine or an equivalent, nearest first |
 | `GET /pharmacies` | public | Validated pharmacies, without personal data |
-| `POST /alerts` | public | Be alerted when a medicine is back in stock |
+| `POST /alerts` | public | Be emailed once when a medicine, or an exact equivalent, is declared in stock nearby (503 when emails are off) |
 | `POST /auth/register-pharmacist`, `POST /auth/login` | public | Pharmacist registration and login |
 | `GET /auth/me`, `POST /auth/change-password` | logged in | Own account |
 | `/pharmacist/...` | pharmacist | Own pharmacy and stock declarations |
@@ -115,7 +115,7 @@ python -m uvicorn app.main:app --reload
 | `/pharmacist/deliveries...` | pharmacist | History of kept delivery notes: list, search, detail, photos, export, corrections, deletion, cancellation |
 | `/admin/...` | admin | Check, approve, reject or suspend pharmacies |
 
-Environment variables (see `.env.example`): `DATABASE_URL`, `JWT_SECRET` (required), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEMO_PHARMACIST_PASSWORD`, `FRONTEND_URL` (production frontend allowed by CORS; `http://localhost:3000` is always allowed), the optional AI settings (`LLM_*`, `ARABIC_SEARCH_MODE`, see "Photo recognition" and "Multilingual search"), the history retention (`HISTORY_*`) and optionally `MEDICINES_CSV`. For PostgreSQL, also install its driver: `pip install "psycopg[binary]"`.
+Environment variables (see `.env.example`): `DATABASE_URL`, `JWT_SECRET` (required), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEMO_PHARMACIST_PASSWORD`, `FRONTEND_URL` (production frontend allowed by CORS; `http://localhost:3000` is always allowed), the optional AI settings (`LLM_*`, `ARABIC_SEARCH_MODE`, see "Photo recognition" and "Multilingual search"), the alert emails (`EMAIL_*`, see "Email alerts"), the history retention (`HISTORY_*`) and optionally `MEDICINES_CSV`. For PostgreSQL, also install its driver: `pip install "psycopg[binary]"`.
 
 **Run the tests** from `backend/`. They use a temporary database, never the real one:
 
@@ -249,6 +249,27 @@ levothyrox_50.jpg,LEVOTHYROX,50 µg
 ```
 
 Then run `python scripts/evaluate_recognition.py`. It sends each photo through the real recognition, prints the share of boxes where the right medicine is 1st and in the first 3, and the average time, and writes the summary to `docs/recognition_results.md` (without the photos). It pauses 7 seconds between photos to stay within the free tier (`--pause` to change it).
+
+## Email alerts
+
+On a medicine page, a patient leaves an email to be told when a pharmacy near them has it. As soon as a validated pharmacy within the chosen radius declares the medicine, or one of its exact equivalents, in stock (by hand, in bulk or with a delivery note scan, or when its pharmacy is approved again), MedRadar sends **one** email: the pharmacy, its address, phone and opening hours, and a link to the medicine page. The alert is then finished. If the email cannot be sent, the alert stays active and is tried again at the next declaration. Emails are sent after the response, so a pharmacist never waits for them.
+
+**Configuration.** Off until a key is set: the medicine page then hides the alert form.
+
+1. Create a free account on [Brevo](https://www.brevo.com) (300 emails a day, no credit card).
+2. In **Senders, domains & dedicated IPs → Senders**, add the address emails come from (a Gmail address works) and click the link Brevo sends to it.
+3. In **SMTP & API → API keys**, create a key, then put it in `.env`:
+
+   ```bash
+   EMAIL_API_KEY=xkeysib-...
+   EMAIL_FROM=the-verified-sender@gmail.com
+   EMAIL_FROM_NAME=MedRadar
+   FRONTEND_URL=https://your-frontend.example   # used for the link in the email
+   ```
+
+4. Restart the API. `GET /features` now returns `"email_alerts": true`.
+
+Without a domain of your own, some emails may land in spam: tell the jury to check it. The tests and the end-to-end tests use a simulated sender (`EMAIL_PROVIDER=fake`) and never send an email.
 
 ## Delivery note scan and history (pharmacists)
 
