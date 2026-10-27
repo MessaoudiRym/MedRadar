@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { CameraIcon, CheckIcon, ImageIcon } from "../icons";
 import { PharmacistNav } from "../pharmacist/PharmacistNav";
-import { buttonClass, Loading, Notice, PageTitle } from "../ui";
+import { buttonClass, ErrorState, Loading, Notice, PageTitle } from "../ui";
 import { ReviewNote } from "./ReviewNote";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { useAuthedApi } from "@/lib/auth";
 import {
   compressPages,
@@ -106,7 +106,9 @@ export function DeliveryScan() {
     <div className="mx-auto max-w-3xl space-y-6">
       <PharmacistNav />
 
-      {pharmacy?.statut !== "validee" ? (
+      {me.status === "error" ? (
+        <ErrorState message={errorMessage(me.error)} onRetry={me.reload} />
+      ) : pharmacy?.statut !== "validee" ? (
         <Notice tone="info" title="Available once your pharmacy is approved">
           <p>
             <Link href="/pharmacien" className="font-semibold text-brand underline">

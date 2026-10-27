@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 
 import { MapContainer, Marker, TileLayer } from "react-leaflet";
 
+import { useFreshMap } from "./useFreshMap";
 import { placeIcon, TILE_ATTRIBUTION, TILE_URL } from "./markers";
 import type { LatLng } from "@/lib/geo";
 
@@ -14,8 +15,10 @@ export interface MiniMapProps {
 
 /** A small map with one marker (admin: where is this pharmacy?). */
 export default function MiniMapInner({ position, label }: MiniMapProps) {
+  const mapKey = useFreshMap();
   return (
     <MapContainer
+      key={mapKey}
       center={[position.lat, position.lng]}
       zoom={15}
       scrollWheelZoom={false}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { type LatLng, ORAN_CENTER, ORAN_DISTRICTS } from "./geo";
+import { haversineKm, type LatLng, ORAN_CENTER, ORAN_DISTRICTS } from "./geo";
 import { createSessionStore } from "./sessionStore";
 
 export interface ChosenLocation {
@@ -21,6 +21,9 @@ export const DEFAULT_LOCATION: ChosenLocation = {
   source: "district",
 };
 
+// Pharmacies are only in Oran for now: a position further away would show an empty map
+const COVERED_KM = 60;
+
 export function useLocation() {
   const chosen = store.useValue();
   const location = chosen ?? DEFAULT_LOCATION;
@@ -37,11 +40,13 @@ export function useLocation() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        store.set({
-          position: { lat: pos.coords.latitude, lng: pos.coords.longitude },
-          label: "your position",
-          source: "gps",
-        });
+        const position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        if (haversineKm(position, ORAN_CENTER) > COVERED_KM) {
+          store.set(DEFAULT_LOCATION);
+          setProblem("You are far from Oran. MedRadar only covers Oran for now: we show pharmacies around Oran city centre.");
+          return;
+        }
+        store.set({ position, label: "your position", source: "gps" });
       },
       (error) => {
         setLocating(false);

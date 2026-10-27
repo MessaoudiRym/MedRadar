@@ -33,7 +33,14 @@ export async function generateMetadata({ params }: PageProps<"/medicament/[id]">
 
 export default function MedicinePage({ params }: PageProps<"/medicament/[id]">) {
   return (
-    <Suspense fallback={<Loading label="Loading the medicine…" />}>
+    // The loading state takes the height of the screen: the footer does not jump when the page appears
+    <Suspense
+      fallback={
+        <div className="min-h-screen">
+          <Loading label="Loading the medicine…" />
+        </div>
+      }
+    >
       {params.then(({ id }) => (
         <MedicineView id={id} />
       ))}

@@ -47,7 +47,13 @@ export function MedicineView({ id }: { id: string }) {
     return ids.size;
   }, [availability]);
 
-  if (medicine.status === "loading") return <Loading label="Loading the medicine…" />;
+  if (medicine.status === "loading") {
+    return (
+      <div className="min-h-screen">
+        <Loading label="Loading the medicine…" />
+      </div>
+    );
+  }
   if (medicine.status === "error") {
     if (medicine.error instanceof ApiError && medicine.error.status === 404) {
       return (

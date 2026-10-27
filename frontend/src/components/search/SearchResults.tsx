@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ArrowRightIcon, QuestionIcon } from "../icons";
 import { PhotoSearch } from "../photo/PhotoSearch";
-import { SearchBox } from "../SearchBox";
+import { MAX_QUERY_LENGTH, SearchBox } from "../SearchBox";
 import { ErrorState, Loading, Notice } from "../ui";
 import { api, errorMessage } from "@/lib/api";
 import { formatDose } from "@/lib/format";
@@ -33,7 +33,8 @@ function Typed({ text }: { text: string }) {
  * from the official list, and the patient checks them.
  */
 export function SearchResults() {
-  const q = (useSearchParams().get("q") ?? "").trim();
+  // A link can carry a longer text than the search box allows
+  const q = (useSearchParams().get("q") ?? "").slice(0, MAX_QUERY_LENGTH).trim();
   const input = useRef<HTMLInputElement>(null);
   const search = useAsync(
     (signal) =>
