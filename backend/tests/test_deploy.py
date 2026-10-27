@@ -84,3 +84,15 @@ def test_cors_allows_every_frontend_url(monkeypatch):
     finally:
         monkeypatch.delenv("FRONTEND_URL")
         importlib.reload(config)
+
+
+def test_no_migration_lock_through_the_neon_pooler(monkeypatch):
+    from app import migrate as module
+
+    monkeypatch.setattr(module, "is_sqlite", False)
+    monkeypatch.setattr(module, "DATABASE_URL",
+                        "postgresql+psycopg://u:p@ep-x-pooler.eu-central-1.aws.neon.tech/db")
+    assert module._can_lock() is False
+    monkeypatch.setattr(module, "DATABASE_URL",
+                        "postgresql+psycopg://u:p@ep-x.eu-central-1.aws.neon.tech/db")
+    assert module._can_lock() is True

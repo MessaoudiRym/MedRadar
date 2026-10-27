@@ -8,6 +8,7 @@ the database is already up to date, it does nothing.
 
 import logging
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from alembic import command
 from alembic.config import Config
@@ -15,12 +16,26 @@ from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import text
 
+from .config import DATABASE_URL
 from .db import engine, is_sqlite
 
 logger = logging.getLogger("medradar")
 
 BACKEND = Path(__file__).resolve().parents[1]
 LOCK_ID = 7_243_051  # any fixed number: the same for every MedRadar instance
+
+
+def _can_lock():
+    """A session lock needs a real session: not SQLite, and not the Neon pooler
+    (PgBouncer gives each transaction any server connection, so the unlock could
+    miss and the next start would wait forever). Use Neon's direct URL."""
+    if is_sqlite:
+        return False
+    if "-pooler" in (urlsplit(DATABASE_URL).hostname or ""):
+        logger.warning("DATABASE_URL is Neon's pooled address: migrations run without a lock. "
+                       "Use the direct address (without -pooler), see docs/deployment.md.")
+        return False
+    return True
 
 
 class MigrationFailed(RuntimeError):
@@ -42,9 +57,10 @@ def _current_and_head(connection, config):
 def migrate():
     """Bring the database to the latest migration. Raises MigrationFailed."""
     config = _config()
+    lock = _can_lock()
     try:
         with engine.connect() as connection:
-            if not is_sqlite:
+            if lock:
                 # Waits while another instance migrates; released below or on disconnect
                 connection.execute(text("SELECT pg_advisory_lock(:id)"), {"id": LOCK_ID})
                 connection.commit()
@@ -58,7 +74,7 @@ def migrate():
                 command.upgrade(config, "head")
                 logger.info("Database migrated to %s", head)
             finally:
-                if not is_sqlite:
+                if lock:
                     connection.execute(text("SELECT pg_advisory_unlock(:id)"), {"id": LOCK_ID})
                     connection.commit()
     except Exception as error:
