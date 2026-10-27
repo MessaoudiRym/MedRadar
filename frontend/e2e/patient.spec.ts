@@ -47,3 +47,20 @@ test("an unknown medicine shows a clear message", async ({ page }) => {
   await page.goto("/medicament/000000000000");
   await expect(page.getByRole("heading", { name: "Medicine not found" })).toBeVisible();
 });
+
+test("the map still works after the browser Back button", async ({ page }) => {
+  const crashes: string[] = [];
+  page.on("pageerror", (error) => crashes.push(error.message));
+  await page.goto(`/medicament/${GLUCOPHAGE_850}`);
+  await expect(page.locator(".marker-pin--stock").first()).toBeVisible();
+
+  await page.getByRole("region", { name: "Equivalents registered in Algeria" }).getByRole("link").first().click();
+  await expect(page).not.toHaveURL(new RegExp(GLUCOPHAGE_850));
+  await expect(page.locator(".leaflet-container:visible")).toBeVisible();
+
+  await page.goBack();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Glucophage 850");
+  await expect(page.locator(".marker-pin--stock:visible").first()).toBeVisible();
+  await expect(page.getByText("Something went wrong")).toHaveCount(0);
+  expect(crashes).toEqual([]);
+});

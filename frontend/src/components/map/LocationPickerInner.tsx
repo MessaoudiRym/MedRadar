@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo } from "react";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
+import { useFreshMap } from "./useFreshMap";
 import { placeIcon, TILE_ATTRIBUTION, TILE_URL } from "./markers";
 import type { LatLng } from "@/lib/geo";
 
@@ -36,6 +37,7 @@ const round = (n: number) => Math.round(n * 1e6) / 1e6;
 
 /** Click on the map, or drag the marker, to place the pharmacy. */
 export default function LocationPickerInner({ value, onChange, label, height = "h-72" }: LocationPickerProps) {
+  const mapKey = useFreshMap();
   const handlers = useMemo(
     () => ({
       dragend(event: { target: { getLatLng: () => { lat: number; lng: number } } }) {
@@ -48,6 +50,7 @@ export default function LocationPickerInner({ value, onChange, label, height = "
 
   return (
     <MapContainer
+      key={mapKey}
       center={[value.lat, value.lng]}
       zoom={15}
       className={`${height} w-full rounded-xl border-2 border-line`}

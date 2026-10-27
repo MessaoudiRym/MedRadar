@@ -6,6 +6,7 @@ import L from "leaflet";
 import { useEffect } from "react";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
+import { useFreshMap } from "./useFreshMap";
 import { type MarkerKind, pharmacyIcon, TILE_ATTRIBUTION, TILE_URL, youIcon } from "./markers";
 import type { LatLng } from "@/lib/geo";
 
@@ -37,18 +38,20 @@ function FitBounds({ center, radiusKm, pharmacies }: Omit<PharmacyMapProps, "lab
     const area = L.latLng(center.lat, center.lng).toBounds(radiusKm * 2000);
     const points = pharmacies.map((p) => L.latLng(p.position.lat, p.position.lng));
     const bounds = points.length ? L.latLngBounds(points).extend(L.latLng(center.lat, center.lng)) : area;
-    map.fitBounds(bounds.pad(0.1), { maxZoom: 15 });
+    map.fitBounds(bounds.pad(0.1), { maxZoom: 15, animate: false });
   }, [map, center, radiusKm, pharmacies]);
   return null;
 }
 
 export default function PharmacyMapInner({ center, radiusKm, pharmacies, label }: PharmacyMapProps) {
+  const mapKey = useFreshMap();
   // Pharmacies in stock are drawn last, so they stay on top
   const order: MarkerKind[] = ["unknown", "out", "stock"];
   const sorted = [...pharmacies].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
 
   return (
     <MapContainer
+      key={mapKey}
       center={[center.lat, center.lng]}
       zoom={13}
       scrollWheelZoom={false}
