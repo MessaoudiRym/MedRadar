@@ -81,11 +81,6 @@ class Output(BaseModel):
 # Medicines (unchanged)
 # --------------------------------------------------------------------------
 
-class Health(BaseModel):
-    status: str
-    medicines: int
-
-
 class SearchResult(BaseModel):
     id: str
     nom_marque: str
@@ -153,6 +148,20 @@ class Features(BaseModel):
     photo_recognition: bool
     delivery_scan: bool
     email_alerts: bool
+    multilingual_search: bool
+
+
+class Health(BaseModel):
+    status: str
+    medicines: int
+    version: str | None = Field(description="short git hash of the running version")
+    features: Features
+
+
+class DeepHealth(BaseModel):
+    status: str
+    database: str
+    database_ms: int | None
 
 
 class TextRead(BaseModel):

@@ -1,11 +1,16 @@
 """Medicine search and equivalents (data from the official nomenclature)."""
 
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from slowapi.util import get_remote_address
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..db import get_db
-from ..schemas import Equivalents, Health, Medicine, SearchResult, SmartSearchResult
+from ..db import SessionLocal, get_db
+from ..limiter import client_ip
+from ..schemas import DeepHealth, Equivalents, Health, Medicine, SearchResult, SmartSearchResult
+from .recognition import enabled_features
 
 router = APIRouter(tags=["medicines"])
 
@@ -25,7 +30,25 @@ def get_medicine_or_404(request: Request, medicine_id: str):
 
 @router.get("/health", response_model=Health, tags=["health"])
 def health(request: Request):
-    return {"status": "ok", "medicines": len(request.app.state.store)}
+    """Very light (called every 5 minutes by the uptime monitor): memory only, no database."""
+    return {"status": "ok", "medicines": len(request.app.state.store),
+            "version": request.app.state.version, "features": enabled_features(request.app)}
+
+
+@router.get("/health/deep", response_model=DeepHealth, tags=["health"],
+            responses={503: {"model": DeepHealth}})
+def deep_health():
+    """Also checks the database (for the deployment checks, not for the uptime monitor:
+    it would keep the free database awake)."""
+    start = time.monotonic()
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(status_code=503, content={
+            "status": "error", "database": "unreachable", "database_ms": None})
+    return {"status": "ok", "database": "ok",
+            "database_ms": round((time.monotonic() - start) * 1000)}
 
 
 @router.get("/medicines/search", response_model=list[SearchResult] | SmartSearchResult)
@@ -43,7 +66,7 @@ def search_medicines(
     smart = request.app.state.smart_search
     if not interpret:
         return smart.suggest(q, limit)
-    return smart.search(q, limit, db, get_remote_address(request),
+    return smart.search(q, limit, db, client_ip(request),
                         request.app.state.interpreter, request.app.state.search_mode)
 
 
