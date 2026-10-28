@@ -38,7 +38,7 @@ Pharmacists update their stock in two taps.
 | Database | SQLite for development, PostgreSQL in production (SQLAlchemy, Alembic migrations); fuzzy search in memory with RapidFuzz |
 | AI | Google Gemini (Flash, free tier), optional: reads medicine box photos and delivery notes, and understands Arabic, Darija and English queries. Everything it returns is checked against the database |
 | Email alerts | Brevo API (free plan, 300 emails a day), optional |
-| AI coding tools | _to be listed_ |
+| AI coding tools | Claude AI |
 
 ## Project structure
 
@@ -315,7 +315,7 @@ Without a domain of your own, some emails may land in spam: tell the jury to che
 
 ## Deployment
 
-MedRadar runs online on free plans only, without a credit card: [Neon](https://neon.tech) (PostgreSQL), [Render](https://render.com) (API, see `render.yaml`), [Vercel](https://vercel.com) (site), [UptimeRobot](https://uptimerobot.com) (monitoring, and keeps the free API awake) and GitHub Actions (nightly reset of the demo data, check of the online version every 6 hours). The step-by-step guide, in French, is in [docs/deployment.md](docs/deployment.md).
+MedRadar runs online on free plans only, without a credit card: [Neon](https://neon.tech) (PostgreSQL), [Render](https://render.com) (API, see `render.yaml`), [Vercel](https://vercel.com) (site), [UptimeRobot](https://uptimerobot.com) (monitoring, and keeps the free API awake) and GitHub Actions (nightly reset of the demo data, check of the online version every 6 hours). The step-by-step guide is in [docs/deployment.md](docs/deployment.md).
 
 ## Who built what
 
