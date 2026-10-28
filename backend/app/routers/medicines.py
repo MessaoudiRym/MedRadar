@@ -28,7 +28,8 @@ def get_medicine_or_404(request: Request, medicine_id: str):
     return medicine
 
 
-@router.get("/health", response_model=Health, tags=["health"])
+# HEAD too: uptime monitors (UptimeRobot) check with HEAD requests
+@router.api_route("/health", methods=["GET", "HEAD"], response_model=Health, tags=["health"])
 def health(request: Request):
     """Very light (called every 5 minutes by the uptime monitor): memory only, no database."""
     return {"status": "ok", "medicines": len(request.app.state.store),

@@ -96,3 +96,9 @@ def test_no_migration_lock_through_the_neon_pooler(monkeypatch):
     monkeypatch.setattr(module, "DATABASE_URL",
                         "postgresql+psycopg://u:p@ep-x.eu-central-1.aws.neon.tech/db")
     assert module._can_lock() is True
+
+
+def test_uptime_monitors_can_check_health_with_head(client):
+    response = client.head("/health")
+    assert response.status_code == 200
+    assert response.content == b""
