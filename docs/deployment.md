@@ -1,96 +1,96 @@
-# Mettre MedRadar en ligne, gratuitement
+# Putting MedRadar online, for free
 
-Ce guide met MedRadar en ligne, **sans carte bancaire**, avec uniquement des offres gratuites :
+This guide puts MedRadar online **without a credit card**, using free plans only:
 
-| Service | Rôle | Offre |
+| Service | Role | Plan |
 | --- | --- | --- |
-| [Neon](https://neon.tech) | Base de données PostgreSQL | Free |
+| [Neon](https://neon.tech) | PostgreSQL database | Free |
 | [Render](https://render.com) | API (FastAPI) | Free |
-| [Vercel](https://vercel.com) | Site (Next.js) | Hobby |
-| [UptimeRobot](https://uptimerobot.com) | Surveille le site et empêche l'API de s'endormir | Free |
-| GitHub Actions | Remet la démo à zéro chaque nuit, vérifie le site toutes les 6 heures | gratuit (dépôt public) |
+| [Vercel](https://vercel.com) | Website (Next.js) | Hobby |
+| [UptimeRobot](https://uptimerobot.com) | Monitors the site and keeps the API from sleeping | Free |
+| GitHub Actions | Resets the demo every night, checks the site every 6 hours | free (public repository) |
 
-Comptez environ **1 h 30** la première fois. Suivez les étapes **dans l'ordre** : chacune utilise ce que la précédente a créé.
+Allow about **1 h 30** the first time. Follow the steps **in order**: each one uses what the previous one created.
 
-> **Avant de commencer.** La branche `chore/deploy` doit être fusionnée dans `main` sur GitHub : Render et Vercel déploient `main`, et les tâches automatiques de GitHub ne tournent que depuis `main`.
+> **Before you start.** Render and Vercel deploy the `main` branch, and GitHub's scheduled tasks only run from `main`: everything below must already be merged into `main`.
 
-Dans ce guide :
-- `<api>` = l'adresse de votre API sur Render, par exemple `https://medradar-api.onrender.com` ;
-- `<site>` = l'adresse de votre site sur Vercel, par exemple `https://medradar.vercel.app`.
+In this guide:
+- `<api>` = the address of your API on Render, for example `https://medradar-api.onrender.com`;
+- `<site>` = the address of your site on Vercel, for example `https://medradar.vercel.app`.
 
-Toujours **sans `/` à la fin**.
+Always **without a `/` at the end**.
 
 ---
 
-## a. Préparer les secrets de production
+## a. Prepare the production secrets
 
-Les secrets de production doivent être **différents** de ceux de votre `.env` local. Si votre ordinateur ou votre `.env` fuit, la version en ligne reste protégée.
+Production secrets must be **different** from the ones in your local `.env`. If your computer or your `.env` leaks, the online version stays protected.
 
-1. **JWT_SECRET** (signe les connexions). Dans un terminal, à la racine du projet :
+1. **JWT_SECRET** (signs logins). In a terminal, at the root of the project:
    ```bash
    python -c "import secrets; print(secrets.token_urlsafe(48))"
    ```
-   Copiez la ligne affichée (64 caractères environ).
-2. **Mot de passe admin** : au moins 8 caractères, avec au moins une lettre et un chiffre. Choisissez-en un **nouveau**, jamais utilisé ailleurs.
-3. **Mot de passe des pharmaciens de démo** (`DEMO_PHARMACIST_PASSWORD`) : même règle. **Attention : il sera public**, affiché sur la page `/demo` pour les visiteurs. Il doit donc être différent du mot de passe admin.
-4. **Email admin** : l'adresse avec laquelle vous vous connecterez à `/admin`.
+   Copy the line it prints (about 64 characters).
+2. **Admin password**: at least 8 characters, with at least one letter and one digit. Choose a **new** one, never used anywhere else.
+3. **Demo pharmacist password** (`DEMO_PHARMACIST_PASSWORD`): same rule. **Careful: it will be public**, shown on the `/demo` page for visitors. It must therefore be different from the admin password.
+4. **Admin email**: the address you will use to log in to `/admin`.
 
-Notez ces 4 valeurs dans un endroit sûr : un gestionnaire de mots de passe, ou une note privée sur votre téléphone. **Jamais** dans un fichier du projet, ni dans un message, ni dans une conversation.
+Write these 4 values down somewhere safe: a password manager, or a private note on your phone. **Never** in a project file, a message or a conversation.
 
-✅ **Vérification** : vous avez 4 valeurs notées, et aucune n'est identique à votre `.env` local.
+✅ **Check**: you have 4 values written down, and none of them is the same as in your local `.env`.
 
 ---
 
-## b. Neon : la base de données
+## b. Neon: the database
 
-1. Allez sur [neon.tech](https://neon.tech) → **Sign up** → **Continue with GitHub**. Aucune carte n'est demandée.
-2. Créez un projet :
-   - **Project name** : `medradar` ;
-   - **Postgres version** : la version proposée par défaut ;
-   - **Region** : **AWS Europe Central 1 (Frankfurt)**, la plus proche de l'Algérie.
+1. Go to [neon.tech](https://neon.tech) → **Sign up** → **Continue with GitHub**. No card is asked for.
+2. Create a project:
+   - **Project name**: `medradar`;
+   - **Postgres version**: the default one;
+   - **Region**: **AWS Europe Central 1 (Frankfurt)**, the closest to Algeria.
 
-   Cliquez **Create project**.
-3. Sur la page du projet, cliquez **Connect** (en haut à droite).
-   - **Désactivez « Connection pooling »**. L'adresse ne doit **pas** contenir `-pooler`. MedRadar a besoin de l'adresse directe pour ses migrations.
-   - Copiez l'adresse qui commence par `postgresql://`. Elle ressemble à :
-     `postgresql://neondb_owner:MOTDEPASSE@ep-xxx-yyy.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`
-   - Elle doit contenir `sslmode=require` : Neon refuse les connexions non chiffrées.
-4. Cette adresse contient un mot de passe : notez-la avec vos secrets.
+   Click **Create project**.
+3. On the project page, click **Connect** (top right).
+   - **Turn off "Connection pooling"**. The address must **not** contain `-pooler`: MedRadar needs the direct address for its migrations.
+   - Copy the address that starts with `postgresql://`. It looks like:
+     `postgresql://neondb_owner:PASSWORD@ep-xxx-yyy.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`
+   - It must contain `sslmode=require`: Neon refuses unencrypted connections.
+4. This address contains a password: keep it with your secrets.
 
-   > Si vous l'avez déjà collée quelque part (message, conversation, capture d'écran), changez le mot de passe : **Branches → main → Roles → neondb_owner → Reset password**, puis copiez la nouvelle adresse.
-5. Testez la connexion depuis votre ordinateur.
+   > If you have already pasted it somewhere (a message, a conversation, a screenshot), change the password: **Branches → main → Roles → neondb_owner → Reset password**, then copy the new address.
+5. Test the connection from your computer.
 
-   **Windows (PowerShell)**, à la racine du projet :
+   **Windows (PowerShell)**, at the root of the project:
    ```powershell
    pip install -r backend/requirements.txt
-   $env:DATABASE_URL = "COLLEZ_ICI_L_ADRESSE_NEON"
+   $env:DATABASE_URL = "PASTE_THE_NEON_ADDRESS_HERE"
    python -c "import os, psycopg; print(psycopg.connect(os.environ['DATABASE_URL']).execute('select version()').fetchone()[0])"
    ```
-   **Mac / Linux** :
+   **Mac / Linux**:
    ```bash
    pip install -r backend/requirements.txt
-   export DATABASE_URL="COLLEZ_ICI_L_ADRESSE_NEON"
+   export DATABASE_URL="PASTE_THE_NEON_ADDRESS_HERE"
    python -c "import os, psycopg; print(psycopg.connect(os.environ['DATABASE_URL']).execute('select version()').fetchone()[0])"
    ```
 
-✅ **Vérification** : une ligne `PostgreSQL 17.x ...` s'affiche. Gardez ce terminal ouvert pour l'étape c.
+✅ **Check**: a line `PostgreSQL 17.x ...` is printed. Keep this terminal open for step c.
 
 ---
 
-## c. Préparer la base de production (depuis votre ordinateur)
+## c. Prepare the production database (from your computer)
 
-Dans le **même terminal** que l'étape b : `DATABASE_URL` n'y existe que tant qu'il reste ouvert. Votre `.env` local n'est pas modifié, et votre version locale reste sur SQLite.
+Use the **same terminal** as in step b: `DATABASE_URL` only exists there while it stays open. Your local `.env` is not changed, and your local version stays on SQLite.
 
-Les variables du terminal passent **avant** celles de `.env`. Les scripts utilisent donc bien vos valeurs de production.
+Variables set in the terminal win over the ones in `.env`, so the scripts really use your production values.
 
-**Windows (PowerShell)** :
+**Windows (PowerShell)**:
 ```powershell
 git checkout main
 git pull
-$env:DATABASE_URL = "COLLEZ_ICI_L_ADRESSE_NEON"     # déjà fait à l'étape b
-$env:ADMIN_EMAIL = "votre-email-admin"
-$env:ADMIN_PASSWORD = "MOT_DE_PASSE_ADMIN_DE_PRODUCTION"
-$env:DEMO_PHARMACIST_PASSWORD = "MOT_DE_PASSE_DEMO_DE_PRODUCTION"
+$env:DATABASE_URL = "PASTE_THE_NEON_ADDRESS_HERE"     # already done in step b
+$env:ADMIN_EMAIL = "your-admin-email"
+$env:ADMIN_PASSWORD = "PRODUCTION_ADMIN_PASSWORD"
+$env:DEMO_PHARMACIST_PASSWORD = "PRODUCTION_DEMO_PASSWORD"
 
 cd backend
 python -m alembic upgrade head
@@ -99,184 +99,184 @@ python scripts/create_admin.py
 python scripts/reset_demo_data.py
 ```
 
-**Mac / Linux** :
+**Mac / Linux**:
 ```bash
 git checkout main && git pull
-export DATABASE_URL="COLLEZ_ICI_L_ADRESSE_NEON"
-export ADMIN_EMAIL="votre-email-admin"
-export ADMIN_PASSWORD="MOT_DE_PASSE_ADMIN_DE_PRODUCTION"
-export DEMO_PHARMACIST_PASSWORD="MOT_DE_PASSE_DEMO_DE_PRODUCTION"
+export DATABASE_URL="PASTE_THE_NEON_ADDRESS_HERE"
+export ADMIN_EMAIL="your-admin-email"
+export ADMIN_PASSWORD="PRODUCTION_ADMIN_PASSWORD"
+export DEMO_PHARMACIST_PASSWORD="PRODUCTION_DEMO_PASSWORD"
 
 cd backend && python -m alembic upgrade head && cd ..
 python scripts/create_admin.py
 python scripts/reset_demo_data.py
 ```
 
-Ce que font ces commandes :
-- `alembic upgrade head` crée les tables. Sans danger si elles existent déjà.
-- `create_admin.py` crée votre compte admin. Relancé, il change seulement son mot de passe.
-- `reset_demo_data.py` crée les 43 pharmacies de démo (dont 2 en attente de validation) et les 4 comptes `pharmacien1@medradar.demo` à `pharmacien4@medradar.demo`. Il ne touche jamais aux vraies pharmacies ni à l'admin.
+What these commands do:
+- `alembic upgrade head` creates the tables. Safe if they already exist.
+- `create_admin.py` creates your admin account. Run again, it only changes its password.
+- `reset_demo_data.py` creates the 43 demo pharmacies (2 of them waiting for validation) and the 4 accounts `pharmacien1@medradar.demo` to `pharmacien4@medradar.demo`. It never touches real pharmacies or the admin.
 
-✅ **Vérification** : la dernière ligne affichée est `Demo data reset: OK`. Dans Neon, ouvrez **Tables** : `pharmacies` contient 43 lignes et `users` en contient 5.
+✅ **Check**: the last line printed is `Demo data reset: OK`. In Neon, open **Tables**: `pharmacies` has 43 rows and `users` has 5.
 
-Fermez ensuite le terminal : les mots de passe tapés disparaissent avec lui.
+Then close the terminal: the passwords you typed disappear with it.
 
 ---
 
-## d. Render : l'API
+## d. Render: the API
 
-1. Allez sur [render.com](https://render.com) → **Get Started** → **GitHub**. Aucune carte n'est demandée pour l'offre Free.
-2. **Ne créez qu'UN SEUL service gratuit sur ce compte.** L'offre Free donne 750 heures par mois en tout. Un service allumé jour et nuit en utilise 720 à 744. Avec deux services, l'API serait arrêtée avant la fin du mois.
-3. Cliquez **New → Blueprint**, autorisez Render à lire votre dépôt GitHub, puis choisissez **MedRadar**. Render lit le fichier `render.yaml`, qui décrit déjà tout :
-   - offre **Free** ;
-   - région **Frankfurt** ;
-   - Python 3.12 ;
-   - commande d'installation et de démarrage ;
-   - vérification de santé sur `/health`.
-4. Render demande la valeur des secrets. Remplissez :
+1. Go to [render.com](https://render.com) → **Get Started** → **GitHub**. No card is asked for on the Free plan.
+2. **Create only ONE free service on this account.** The Free plan gives 750 hours a month in total. One service running day and night uses 720 to 744. With two services, the API would be stopped before the end of the month.
+3. Click **New → Blueprint**, let Render read your GitHub repository, then choose **MedRadar**. Render reads the `render.yaml` file, which already describes everything:
+   - **Free** plan;
+   - **Frankfurt** region;
+   - Python 3.12;
+   - install and start commands;
+   - health check on `/health`.
+4. Render asks for the value of the secrets. Fill in:
 
-   | Nom | Valeur à mettre | Où la trouver |
+   | Name | Value | Where to find it |
    | --- | --- | --- |
-   | `DATABASE_URL` | L'adresse Neon **directe** (sans `-pooler`) | Étape b |
-   | `JWT_SECRET` | La longue valeur générée | Étape a |
-   | `FRONTEND_URL` | Laissez vide pour l'instant | Rempli à l'étape f |
-   | `LLM_API_KEY` | Votre clé Gemini, ou vide (IA désactivée, tout le reste marche) | [Google AI Studio](https://aistudio.google.com/apikey) |
-   | `EMAIL_API_KEY` | Votre clé Brevo, ou vide (alertes email cachées) | Brevo → SMTP & API → API keys |
-   | `EMAIL_FROM` | L'adresse d'envoi vérifiée dans Brevo, ou vide | Brevo → Senders |
+   | `DATABASE_URL` | The **direct** Neon address (without `-pooler`) | Step b |
+   | `JWT_SECRET` | The long generated value | Step a |
+   | `FRONTEND_URL` | Leave empty for now | Filled in at step f |
+   | `LLM_API_KEY` | Your Gemini key, or empty (AI off, everything else works) | [Google AI Studio](https://aistudio.google.com/apikey) |
+   | `EMAIL_API_KEY` | Your Brevo key, or empty (email alerts hidden) | Brevo → SMTP & API → API keys |
+   | `EMAIL_FROM` | The sender address verified in Brevo, or empty | Brevo → Senders |
 
-   Les autres variables (`PYTHON_VERSION`, `LLM_MODEL`…) ont déjà leur valeur dans `render.yaml`.
-5. Cliquez **Apply**. Le premier déploiement prend 3 à 6 minutes.
-6. Ouvrez le service **medradar-api** → onglet **Logs**. Vous devez voir dans l'ordre :
+   The other variables (`PYTHON_VERSION`, `LLM_MODEL`…) already have their value in `render.yaml`.
+5. Click **Apply**. The first deploy takes 3 to 6 minutes.
+6. Open the **medradar-api** service → **Logs** tab. You should see, in this order:
    ```
    INFO medradar: Database is up to date (migration ...)
    INFO:     Application startup complete.
    ```
-   Sans `-pooler`, aucun avertissement ne doit apparaître sur le verrou des migrations.
-7. En haut de la page du service, copiez l'adresse : c'est `<api>`.
+   Without `-pooler`, no warning about the migration lock should appear.
+7. At the top of the service page, copy the address: this is `<api>`.
 
-✅ **Vérification** : ouvrez `<api>/health` dans le navigateur. Vous devez voir `"status":"ok"`, `"medicines":4384` et la liste des fonctionnalités. Ouvrez aussi `<api>/health/deep` : vous devez voir `"database":"ok"`.
+✅ **Check**: open `<api>/health` in the browser. You should see `"status":"ok"`, `"medicines":4384` and the list of features. Also open `<api>/health/deep`: you should see `"database":"ok"`.
 
 ---
 
-## e. Vercel : le site
+## e. Vercel: the website
 
-1. Allez sur [vercel.com](https://vercel.com) → **Sign Up** → **Hobby** → **Continue with GitHub**.
-2. **Add New… → Project** → à côté de **MedRadar**, cliquez **Import**.
-3. **Root Directory** : cliquez **Edit**, choisissez **`frontend`**, puis **Continue**. Le framework **Next.js** est détecté tout seul. Ne changez pas les commandes.
-4. Ouvrez **Environment Variables** et ajoutez :
+1. Go to [vercel.com](https://vercel.com) → **Sign Up** → **Hobby** → **Continue with GitHub**.
+2. **Add New… → Project** → next to **MedRadar**, click **Import**.
+3. **Root Directory**: click **Edit**, choose **`frontend`**, then **Continue**. The **Next.js** framework is detected automatically. Do not change the commands.
+4. Open **Environment Variables** and add:
 
-   | Nom | Valeur | Où la trouver |
+   | Name | Value | Where to find it |
    | --- | --- | --- |
-   | `NEXT_PUBLIC_API_URL` | `<api>` (sans `/` final) | Étape d |
-   | `NEXT_PUBLIC_DEMO_PHARMACIST_EMAIL` | `pharmacien1@medradar.demo` | Compte de démo avec historique |
-   | `NEXT_PUBLIC_DEMO_PHARMACIST_PASSWORD` | Le mot de passe de démo | Étape a. Public, affiché sur `/demo` |
-   | `NEXT_PUBLIC_GITHUB_URL` | `https://github.com/MessaoudiRym/MedRadar` | Votre dépôt |
-   | `NEXT_PUBLIC_VIDEO_URL` | Le lien de la vidéo, ou vide | Plus tard. Vide = lien caché |
-   | `NEXT_PUBLIC_SITE_URL` | Facultatif | Vercel donne sa propre adresse |
+   | `NEXT_PUBLIC_API_URL` | `<api>` (no `/` at the end) | Step d |
+   | `NEXT_PUBLIC_DEMO_PHARMACIST_EMAIL` | `pharmacien1@medradar.demo` | Demo account with a history |
+   | `NEXT_PUBLIC_DEMO_PHARMACIST_PASSWORD` | The demo password | Step a. Public, shown on `/demo` |
+   | `NEXT_PUBLIC_GITHUB_URL` | `https://github.com/MessaoudiRym/MedRadar` | Your repository |
+   | `NEXT_PUBLIC_VIDEO_URL` | The video link, or empty | Later. Empty = link hidden |
+   | `NEXT_PUBLIC_SITE_URL` | Optional | Vercel gives its own address |
 
-5. Cliquez **Deploy** (environ 2 minutes).
-6. Cliquez **Continue to Dashboard**, puis copiez l'adresse sous **Domains** : c'est `<site>`.
+5. Click **Deploy** (about 2 minutes).
+6. Click **Continue to Dashboard**, then copy the address under **Domains**: this is `<site>`.
 
-✅ **Vérification** : ouvrez `<site>`. L'accueil s'affiche. Le bandeau « Starting the service… » peut apparaître quelques secondes si l'API dormait.
+✅ **Check**: open `<site>`. The home page shows. The "Starting the service…" banner may appear for a few seconds if the API was asleep.
 
-> Les variables `NEXT_PUBLIC_*` sont lues **au moment de la construction**. Si vous en changez une, allez dans **Deployments**, cliquez **⋯** sur le dernier déploiement, puis **Redeploy**.
-
----
-
-## f. Relier le site et l'API
-
-L'API refuse les appels des sites qu'elle ne connaît pas (CORS). Il faut lui donner l'adresse de votre site.
-
-1. Render → **medradar-api** → **Environment** → `FRONTEND_URL` → **Edit**. Mettez `<site>`, par exemple `https://medradar.vercel.app`, **sans `/` à la fin**. Pour plusieurs adresses, séparez-les par des virgules.
-2. Cliquez **Save, rebuild and deploy**, puis attendez « Live » (2 à 4 minutes).
-3. Ouvrez `<site>/medicament/55c9557e1e81`, la fiche de Glucophage 850.
-4. Ouvrez la console du navigateur : **F12** (ou clic droit → **Inspecter**) → onglet **Console**.
-
-✅ **Vérification** :
-- la fiche affiche 13 équivalents et la carte ;
-- la console ne contient **aucune** ligne rouge `blocked by CORS policy`.
-
-Si cette ligne apparaît, `FRONTEND_URL` ne correspond pas exactement à l'adresse du site : `https` ou `http`, un `/` en trop, ou une faute de frappe.
+> `NEXT_PUBLIC_*` variables are read **when the site is built**. If you change one, go to **Deployments**, click **⋯** on the latest deployment, then **Redeploy**.
 
 ---
 
-## g. GitHub : les vérifications automatiques
+## f. Connect the site and the API
 
-1. Sur GitHub, ouvrez votre dépôt → **Settings** → **Secrets and variables** → **Actions**.
-2. Onglet **Secrets** → **New repository secret**, deux fois :
+The API refuses calls from sites it does not know (CORS). It needs the address of your site.
 
-   | Nom | Valeur |
+1. Render → **medradar-api** → **Environment** → `FRONTEND_URL` → **Edit**. Put `<site>`, for example `https://medradar.vercel.app`, **without a `/` at the end**. For several addresses, separate them with commas.
+2. Click **Save, rebuild and deploy**, then wait for "Live" (2 to 4 minutes).
+3. Open `<site>/medicament/55c9557e1e81`, the page of Glucophage 850.
+4. Open the browser console: **F12** (or right click → **Inspect**) → **Console** tab.
+
+✅ **Check**:
+- the page shows 13 equivalents and the map;
+- the console has **no** red line `blocked by CORS policy`.
+
+If that line appears, `FRONTEND_URL` does not match the address of the site exactly: `https` or `http`, an extra `/`, or a typo.
+
+---
+
+## g. GitHub: the automatic checks
+
+1. On GitHub, open your repository → **Settings** → **Secrets and variables** → **Actions**.
+2. **Secrets** tab → **New repository secret**, twice:
+
+   | Name | Value |
    | --- | --- |
-   | `DATABASE_URL` | L'adresse Neon directe (étape b) |
-   | `DEMO_PHARMACIST_PASSWORD` | Le mot de passe de démo (étape a) |
+   | `DATABASE_URL` | The direct Neon address (step b) |
+   | `DEMO_PHARMACIST_PASSWORD` | The demo password (step a) |
 
-3. Onglet **Variables** → **New repository variable**, deux fois :
+3. **Variables** tab → **New repository variable**, twice:
 
-   | Nom | Valeur |
+   | Name | Value |
    | --- | --- |
    | `API_URL` | `<api>` |
    | `SITE_URL` | `<site>` |
 
-4. Onglet **Actions** du dépôt. Si GitHub le demande, cliquez **I understand my workflows, go ahead and enable them**.
-5. Choisissez **reset-demo** → **Run workflow** → **Run workflow**. Attendez la coche verte (environ 2 minutes).
-6. Choisissez **smoke-test** → **Run workflow** → **Run workflow**.
+4. **Actions** tab of the repository. If GitHub asks, click **I understand my workflows, go ahead and enable them**.
+5. Choose **reset-demo** → **Run workflow** → **Run workflow**. Wait for the green tick (about 2 minutes).
+6. Choose **smoke-test** → **Run workflow** → **Run workflow**.
 
-✅ **Vérification** :
-- les deux tâches sont vertes ;
-- dans les logs de **smoke-test**, toutes les lignes commencent par ✅ et la dernière dit `12/12 checks passed`.
+✅ **Check**:
+- both runs are green;
+- in the **smoke-test** logs, every line starts with ✅ and the last one says `12/12 checks passed`.
 
-À partir de là :
-- **reset-demo** remet la démo à zéro chaque nuit à **03:00 heure d'Alger** ;
-- **smoke-test** vérifie le site toutes les **6 heures**. S'il échoue, GitHub vous envoie un email.
-
----
-
-## h. UptimeRobot : surveiller et garder l'API éveillée
-
-Sur l'offre Free, Render endort l'API après 15 minutes sans visite. Le réveil prend environ une minute. Un appel toutes les 5 minutes la garde éveillée.
-
-1. Allez sur [uptimerobot.com](https://uptimerobot.com) → **Register for FREE**, puis confirmez votre email.
-2. **+ New monitor** (ou **Add New Monitor**) :
-   - **Monitor Type** : **HTTP(s)** ;
-   - **Friendly Name** : `MedRadar API` ;
-   - **URL** : `<api>/health` (surtout pas `/health/deep`, qui réveillerait la base Neon toutes les 5 minutes et userait son quota gratuit) ;
-   - **Monitoring Interval** : **5 minutes** ;
-   - **Alert contacts** : cochez votre email.
-
-   Cliquez **Create Monitor**.
-3. Créez un second moniteur de la même façon : `MedRadar site`, URL `<site>`, 5 minutes, alerte par email.
-
-✅ **Vérification** : après quelques minutes, les deux moniteurs sont **Up** (en vert).
+From then on:
+- **reset-demo** resets the demo every night at **03:00 Algiers time**;
+- **smoke-test** checks the site every **6 hours**. If it fails, GitHub emails you.
 
 ---
 
-## i. Vérifications finales
+## h. UptimeRobot: monitor and keep the API awake
 
-Faites-les **en navigation privée**, une fois sur **ordinateur** et une fois sur **téléphone** (en 4G, sans le Wi-Fi de la maison).
+On the Free plan, Render puts the API to sleep after 15 minutes without visits, and waking up takes about a minute. A call every 5 minutes keeps it awake.
 
-| ✔ | Vérification | Ordinateur | Téléphone |
+1. Go to [uptimerobot.com](https://uptimerobot.com) → **Register for FREE**, then confirm your email.
+2. **+ New monitor** (or **Add New Monitor**):
+   - **Monitor Type**: **HTTP(s)**;
+   - **Friendly Name**: `MedRadar API`;
+   - **URL**: `<api>/health` (never `/health/deep`, which would wake the Neon database every 5 minutes and use up its free quota);
+   - **Monitoring Interval**: **5 minutes**;
+   - **Alert contacts**: tick your email.
+
+   Click **Create Monitor**.
+3. Create a second monitor the same way: `MedRadar site`, URL `<site>`, 5 minutes, email alert.
+
+✅ **Check**: after a few minutes, both monitors are **Up** (green).
+
+---
+
+## i. Final checks
+
+Do them **in a private window**, once on a **computer** and once on a **phone** (on mobile data, not your home Wi-Fi).
+
+| ✔ | Check | Computer | Phone |
 | --- | --- | --- | --- |
-| ☐ | L'accueil s'affiche en moins de 5 secondes | ☐ | ☐ |
-| ☐ | Une recherche avec une faute (`glucofage`) propose Glucophage | ☐ | ☐ |
-| ☐ | La fiche Glucophage 850 s'ouvre | ☐ | ☐ |
-| ☐ | 13 équivalents sont listés | ☐ | ☐ |
-| ☐ | La carte affiche des pharmacies | ☐ | ☐ |
-| ☐ | « Use my position » demande la position et trie par distance | ☐ | ☐ |
-| ☐ | L'alerte email : formulaire présent si Brevo est configuré, et l'email arrive (regardez les spams) | ☐ | ☐ |
-| ☐ | La page `/demo` s'ouvre, avec les onglets English et Français | ☐ | ☐ |
-| ☐ | « Log in in one click » sur `/demo` connecte le pharmacien de démo | ☐ | ☐ |
-| ☐ | Le pharmacien marque un médicament « Out of stock », et la fiche patient l'affiche (rechargez) | ☐ | ☐ |
-| ☐ | Remettre ce médicament « In stock » | ☐ | ☐ |
-| ☐ | La connexion admin sur `/pharmacien/connexion` mène à `/admin`, avec 2 pharmacies en attente | ☐ | ☐ |
-| ☐ | IA, si la clé est mise : photo d'une boîte, recherche en arabe, scan du bon de démo | ☐ | ☐ |
-| ☐ | La page `/confidentialite` s'ouvre | ☐ | ☐ |
-| ☐ | Une adresse inconnue (`<site>/nimporte`) affiche « Page not found » | ☐ | ☐ |
-| ☐ | **Test de veille** : ne visitez rien pendant 20 minutes, puis ouvrez `<site>`. La page s'affiche sans bandeau « Starting the service » : UptimeRobot a gardé l'API éveillée | ☐ | ☐ |
+| ☐ | The home page shows in less than 5 seconds | ☐ | ☐ |
+| ☐ | A search with a typo (`glucofage`) suggests Glucophage | ☐ | ☐ |
+| ☐ | The Glucophage 850 page opens | ☐ | ☐ |
+| ☐ | 13 equivalents are listed | ☐ | ☐ |
+| ☐ | The map shows pharmacies | ☐ | ☐ |
+| ☐ | "Use my position" asks for the position and sorts by distance | ☐ | ☐ |
+| ☐ | Email alert: the form is there when Brevo is set up, and the email arrives (check the spam folder) | ☐ | ☐ |
+| ☐ | The `/demo` page opens, with the English and Français tabs | ☐ | ☐ |
+| ☐ | "Log in in one click" on `/demo` logs the demo pharmacist in | ☐ | ☐ |
+| ☐ | The pharmacist marks a medicine "Out of stock", and the patient page shows it (reload) | ☐ | ☐ |
+| ☐ | Put that medicine back "In stock" | ☐ | ☐ |
+| ☐ | The admin login on `/pharmacien/connexion` leads to `/admin`, with 2 pharmacies waiting | ☐ | ☐ |
+| ☐ | AI, if the key is set: photo of a box, search in Arabic, scan of the demo note | ☐ | ☐ |
+| ☐ | The `/confidentialite` page opens | ☐ | ☐ |
+| ☐ | An unknown address (`<site>/anything`) shows "Page not found" | ☐ | ☐ |
+| ☐ | **Sleep test**: visit nothing for 20 minutes, then open `<site>`. The page shows without the "Starting the service" banner: UptimeRobot kept the API awake | ☐ | ☐ |
 
-Vous pouvez aussi lancer les vérifications automatiques depuis votre ordinateur :
+You can also run the automatic checks from your computer:
 ```powershell
-# Windows (PowerShell), à la racine du projet
-$env:DEMO_PHARMACIST_PASSWORD = "MOT_DE_PASSE_DEMO"
+# Windows (PowerShell), at the root of the project
+$env:DEMO_PHARMACIST_PASSWORD = "DEMO_PASSWORD"
 python scripts/smoke_test.py <api> <site>
 cd frontend
 $env:BASE_URL = "<site>"
@@ -284,42 +284,42 @@ npm run test:prod
 ```
 ```bash
 # Mac / Linux
-DEMO_PHARMACIST_PASSWORD="MOT_DE_PASSE_DEMO" python scripts/smoke_test.py <api> <site>
-cd frontend && BASE_URL="<site>" DEMO_PHARMACIST_PASSWORD="MOT_DE_PASSE_DEMO" npm run test:prod
+DEMO_PHARMACIST_PASSWORD="DEMO_PASSWORD" python scripts/smoke_test.py <api> <site>
+cd frontend && BASE_URL="<site>" DEMO_PHARMACIST_PASSWORD="DEMO_PASSWORD" npm run test:prod
 ```
 
 ---
 
-## j. Que faire si…
+## j. What to do if…
 
-| Problème | Cause probable | Solution |
+| Problem | Likely cause | Solution |
 | --- | --- | --- |
-| Le build **Vercel** échoue | Root Directory n'est pas `frontend` | Vercel → Settings → General → Root Directory = `frontend`, puis Redeploy |
-| Le build **Render** échoue sur `pip install` | Version de Python | Vérifiez que `PYTHON_VERSION` = `3.12.8` dans Environment |
-| La console affiche **`blocked by CORS policy`** | `FRONTEND_URL` différent de l'adresse du site | Étape f : adresse exacte, `https://`, sans `/` final, puis redéployer |
-| Le site affiche « We can't reach MedRadar » | `NEXT_PUBLIC_API_URL` faux, ou l'API est arrêtée | Ouvrez `<api>/health`. S'il répond, corrigez la variable sur Vercel et faites **Redeploy** |
-| Les logs Render disent **`DATABASE MIGRATION FAILED`** | `DATABASE_URL` faux, ou mot de passe Neon changé | Recopiez l'adresse Neon (directe, avec `sslmode=require`), puis Save and deploy |
-| `<api>/health/deep` donne `"database":"unreachable"` | Neon inaccessible, ou mauvaise adresse | Vérifiez le projet dans Neon (pas suspendu), puis l'adresse |
-| Avertissement **`pooled address`** dans les logs | L'adresse contient `-pooler` | Mettez l'adresse directe (Connect → pooling désactivé) |
-| **502** ou « Service waking up » sur Render | L'API dormait ou redémarre | Attendez une minute : le site réessaie tout seul. Si cela revient souvent, vérifiez UptimeRobot (étape h) |
-| Render dit **`Exited with status 1`** au démarrage | Variable obligatoire manquante, par exemple `JWT_SECRET` (32 caractères minimum) | Lisez la dernière ligne rouge des Logs : elle nomme la variable |
-| La carte est vide, **aucune pharmacie** | Données de démo absentes | GitHub → Actions → **reset-demo** → Run workflow |
-| « Log in in one click » répond « Incorrect email or password » | Mot de passe différent entre Vercel et la base | Même valeur dans Vercel (`NEXT_PUBLIC_DEMO_PHARMACIST_PASSWORD`) et dans GitHub (`DEMO_PHARMACIST_PASSWORD`), puis relancez **reset-demo** et faites Redeploy sur Vercel |
-| Photo ou recherche en arabe : « try again later » | Quota Gemini gratuit dépassé | Attendre le lendemain. Le reste du site marche. `LLM_MODEL=gemini-3.5-flash-lite` a le plus grand quota |
-| Une variable manque ou est mal écrite | Faute de frappe dans un nom | Comparez avec `render.yaml` (API) et `frontend/.env.example` (site) |
-| **smoke-test** échoue sur GitHub | Une des vérifications | Ouvrez le log : la ligne ❌ dit laquelle et pourquoi |
+| The **Vercel** build fails | Root Directory is not `frontend` | Vercel → Settings → General → Root Directory = `frontend`, then Redeploy |
+| The **Render** build fails on `pip install` | Python version | Check that `PYTHON_VERSION` = `3.12.8` in Environment |
+| The console shows **`blocked by CORS policy`** | `FRONTEND_URL` differs from the address of the site | Step f: exact address, `https://`, no `/` at the end, then redeploy |
+| The site shows "We can't reach MedRadar" | `NEXT_PUBLIC_API_URL` is wrong, or the API is stopped | Open `<api>/health`. If it answers, fix the variable on Vercel and **Redeploy** |
+| The Render logs say **`DATABASE MIGRATION FAILED`** | Wrong `DATABASE_URL`, or the Neon password was changed | Copy the Neon address again (direct, with `sslmode=require`), then Save and deploy |
+| `<api>/health/deep` gives `"database":"unreachable"` | Neon cannot be reached, or wrong address | Check the project in Neon (not suspended), then the address |
+| **`pooled address`** warning in the logs | The address contains `-pooler` | Use the direct address (Connect → pooling turned off) |
+| **502** or "Service waking up" on Render | The API was asleep or is restarting | Wait a minute: the site retries by itself. If it happens often, check UptimeRobot (step h) |
+| Render says **`Exited with status 1`** at startup | A required variable is missing, for example `JWT_SECRET` (32 characters minimum) | Read the last red line of the Logs: it names the variable |
+| The map is empty, **no pharmacy** | Demo data missing | GitHub → Actions → **reset-demo** → Run workflow |
+| "Log in in one click" answers "Incorrect email or password" | Different password on Vercel and in the database | Same value on Vercel (`NEXT_PUBLIC_DEMO_PHARMACIST_PASSWORD`) and on GitHub (`DEMO_PHARMACIST_PASSWORD`), then run **reset-demo** again and Redeploy on Vercel |
+| Photo or Arabic search: "try again later" | Free Gemini quota used up | Wait until the next day: the rest of the site works. `LLM_MODEL=gemini-3.5-flash-lite` has the largest quota |
+| A variable is missing or misspelt | Typo in a name | Compare with `render.yaml` (API) and `frontend/.env.example` (site) |
+| **smoke-test** fails on GitHub | One of the checks | Open the log: the ❌ line says which one and why |
 
 ---
 
-## k. Pendant une période de démonstration
+## k. During a demo period
 
-**Chaque matin (5 minutes)** :
-1. Vos emails : aucune alerte UptimeRobot ni échec **smoke-test** de GitHub ?
-2. GitHub → **Actions** : **reset-demo** de la nuit est vert ?
-3. Ouvrez `<site>`, faites une recherche et ouvrez une fiche.
-4. Render → **Logs** : pas de série d'erreurs `500`.
-5. Neon → **Monitoring** : la base n'approche pas les limites de l'offre gratuite.
+**Every morning (5 minutes)**:
+1. Your emails: no UptimeRobot alert and no failed GitHub **smoke-test**?
+2. GitHub → **Actions**: is last night's **reset-demo** green?
+3. Open `<site>`, run a search and open a medicine page.
+4. Render → **Logs**: no series of `500` errors.
+5. Neon → **Monitoring**: the database is not close to the limits of the free plan.
 
-**Si un visiteur a modifié la démo** (adresse changée, pharmacie en attente…) : GitHub → Actions → **reset-demo** → **Run workflow**. Tout revient en 2 minutes.
+**If a visitor changed the demo** (address changed, pharmacy waiting for verification…): GitHub → Actions → **reset-demo** → **Run workflow**. Everything is back in 2 minutes.
 
-**Règle d'or : AUCUN push sur `main` pendant la période de démonstration, ni la veille.** Chaque push sur `main` redéploie l'API et le site pendant que des visiteurs testent. Seule exception : une correction **urgente**, d'abord testée en local (`pytest`, `npm run test:e2e`, `npm run build`), puis vérifiée avec `scripts/smoke_test.py` juste après le déploiement.
+**Golden rule: NO push to `main` during the demo period, nor the day before.** Every push to `main` redeploys the API and the site while visitors are testing. Only exception: an **urgent** fix, first tested locally (`pytest`, `npm run test:e2e`, `npm run build`), then checked with `scripts/smoke_test.py` right after the deploy.
