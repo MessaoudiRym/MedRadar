@@ -38,7 +38,7 @@ Pharmacists update their stock in two taps.
 | Database | SQLite for development, PostgreSQL in production (SQLAlchemy, Alembic migrations); fuzzy search in memory with RapidFuzz |
 | AI | Google Gemini (Flash, free tier), optional: reads medicine box photos and delivery notes, and understands Arabic, Darija and English queries. Everything it returns is checked against the database |
 | Email alerts | Brevo API (free plan, 300 emails a day), optional |
-| AI coding tools | _to be listed_ |
+| AI coding tools | Claude AI |
 
 ## Project structure
 
