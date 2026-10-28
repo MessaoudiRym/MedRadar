@@ -1,6 +1,6 @@
 # Mettre MedRadar en ligne, gratuitement
 
-Ce guide met MedRadar en ligne pour la semaine des juges (1er au 7 novembre), **sans carte bancaire**, avec uniquement des offres gratuites :
+Ce guide met MedRadar en ligne, **sans carte bancaire**, avec uniquement des offres gratuites :
 
 | Service | Rôle | Offre |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ Les secrets de production doivent être **différents** de ceux de votre `.env` 
    ```
    Copiez la ligne affichée (64 caractères environ).
 2. **Mot de passe admin** : au moins 8 caractères, avec au moins une lettre et un chiffre. Choisissez-en un **nouveau**, jamais utilisé ailleurs.
-3. **Mot de passe des pharmaciens de démo** (`DEMO_PHARMACIST_PASSWORD`) : même règle. **Attention : il sera public**, affiché sur la page `/demo` pour les juges. Il doit donc être différent du mot de passe admin.
+3. **Mot de passe des pharmaciens de démo** (`DEMO_PHARMACIST_PASSWORD`) : même règle. **Attention : il sera public**, affiché sur la page `/demo` pour les visiteurs. Il doit donc être différent du mot de passe admin.
 4. **Email admin** : l'adresse avec laquelle vous vous connecterez à `/admin`.
 
 Notez ces 4 valeurs dans un endroit sûr : un gestionnaire de mots de passe, ou une note privée sur votre téléphone. **Jamais** dans un fichier du projet, ni dans un message, ni dans une conversation.
@@ -311,7 +311,7 @@ cd frontend && BASE_URL="<site>" DEMO_PHARMACIST_PASSWORD="MOT_DE_PASSE_DEMO" np
 
 ---
 
-## k. Pendant la semaine des juges (1er au 7 novembre)
+## k. Pendant une période de démonstration
 
 **Chaque matin (5 minutes)** :
 1. Vos emails : aucune alerte UptimeRobot ni échec **smoke-test** de GitHub ?
@@ -320,6 +320,6 @@ cd frontend && BASE_URL="<site>" DEMO_PHARMACIST_PASSWORD="MOT_DE_PASSE_DEMO" np
 4. Render → **Logs** : pas de série d'erreurs `500`.
 5. Neon → **Monitoring** : la base n'approche pas les limites de l'offre gratuite.
 
-**Si un juge a modifié la démo** (adresse changée, pharmacie en attente…) : GitHub → Actions → **reset-demo** → **Run workflow**. Tout revient en 2 minutes.
+**Si un visiteur a modifié la démo** (adresse changée, pharmacie en attente…) : GitHub → Actions → **reset-demo** → **Run workflow**. Tout revient en 2 minutes.
 
-**Règle d'or : AUCUN push sur `main` entre le 31 octobre et le 7 novembre.** Chaque push sur `main` redéploie l'API et le site, pendant que les juges testent. Seule exception : une correction **urgente**, d'abord testée en local (`pytest`, `npm run test:e2e`, `npm run build`), puis vérifiée avec `scripts/smoke_test.py` juste après le déploiement.
+**Règle d'or : AUCUN push sur `main` pendant la période de démonstration, ni la veille.** Chaque push sur `main` redéploie l'API et le site pendant que des visiteurs testent. Seule exception : une correction **urgente**, d'abord testée en local (`pytest`, `npm run test:e2e`, `npm run build`), puis vérifiée avec `scripts/smoke_test.py` juste après le déploiement.
