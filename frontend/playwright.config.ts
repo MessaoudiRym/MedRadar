@@ -20,8 +20,8 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: /screenshots/ },
-    { name: "mobile", use: { ...devices["Pixel 7"] }, testIgnore: /screenshots/ },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: /screenshots|production/ },
+    { name: "mobile", use: { ...devices["Pixel 7"] }, testIgnore: /screenshots|production/ },
     { name: "screenshots", use: { ...devices["Desktop Chrome"] }, testMatch: /screenshots\.spec\.ts/ },
   ],
   webServer: [

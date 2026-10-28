@@ -321,26 +321,37 @@ def main():
     except ValueError as error:
         sys.exit(f"DEMO_PHARMACIST_PASSWORD is missing or too weak: {error}")
 
+    with SessionLocal() as db:
+        summary = rebuild(db, password)
+        db.commit()
+    print_summary(summary)
+
+
+def rebuild(db, password):
+    """Delete then recreate every demo row, in the session (not committed).
+    Dates are relative to today: the demo looks the same whatever the day."""
     rng = random.Random(SEED)
     store = load_store()
     medicines, shortages = pick_medicines(store)
+    delete_demo_data(db)
+    pharmacies = create_pharmacies(db, rng)
+    users = create_accounts(db, pharmacies, password)
+    nb_tracked, nb_declarations = create_history(db, rng, pharmacies, medicines, shortages)
+    nb_notes = create_delivery_history(db, store, pharmacies[0], users[0])
+    return {"users": users, "pharmacies": pharmacies, "medicines": medicines,
+            "shortages": shortages, "nb_tracked": nb_tracked,
+            "nb_declarations": nb_declarations, "nb_notes": nb_notes}
 
-    with SessionLocal() as db:
-        delete_demo_data(db)
-        pharmacies = create_pharmacies(db, rng)
-        users = create_accounts(db, pharmacies, password)
-        nb_tracked, nb_declarations = create_history(db, rng, pharmacies, medicines, shortages)
-        nb_notes = create_delivery_history(db, store, pharmacies[0], users[0])
-        db.commit()
 
+def print_summary(s):
     print(f"Demo pharmacies : {NB_VALIDATED} validated + {NB_PENDING} pending "
           f"+ 1 validated and empty (all fictional)")
-    print(f"Demo accounts   : {', '.join(u.email for u in users)}")
-    print(f"Medicines       : {len(medicines)} ({nb_tracked} tracked pairs, "
-          f"{nb_declarations} stock declarations over {HISTORY_DAYS} days)")
-    print(f"Delivery notes  : {nb_notes} in the history of {pharmacies[0].name} (fictional)")
+    print(f"Demo accounts   : {', '.join(u.email for u in s['users'])}")
+    print(f"Medicines       : {len(s['medicines'])} ({s['nb_tracked']} tracked pairs, "
+          f"{s['nb_declarations']} stock declarations over {HISTORY_DAYS} days)")
+    print(f"Delivery notes  : {s['nb_notes']} in the history of {s['pharmacies'][0].name} (fictional)")
     print("Shortages       : " + ", ".join(
-        f"{m['nom_marque']} {m['dosage_norm']}" for m in medicines if m["id"] in shortages))
+        f"{m['nom_marque']} {m['dosage_norm']}" for m in s["medicines"] if m["id"] in s["shortages"]))
 
 
 if __name__ == "__main__":

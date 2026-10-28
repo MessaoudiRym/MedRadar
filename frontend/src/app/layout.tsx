@@ -3,6 +3,7 @@ import { Noto_Sans, Noto_Sans_Arabic } from "next/font/google";
 
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
+import { WakeBanner } from "@/components/WakeBanner";
 import "./globals.css";
 
 // Very legible, with plain digits (phone numbers, doses, distances), and the
@@ -21,13 +22,31 @@ const notoArabic = Noto_Sans_Arabic({
   display: "swap",
 });
 
+// Absolute links for the link previews (Open Graph): the site's own address,
+// given by Vercel at build time, or NEXT_PUBLIC_SITE_URL
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000");
+
+const DESCRIPTION =
+  "Can't find your medicine? MedRadar shows registered equivalents in Algeria and pharmacies that have it, near you.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "MedRadar — find your medicine or an equivalent",
     template: "%s · MedRadar",
   },
-  description:
-    "Can't find your medicine? MedRadar shows registered equivalents in Algeria and pharmacies that have it, near you.",
+  description: DESCRIPTION,
+  applicationName: "MedRadar",
+  openGraph: {
+    type: "website",
+    siteName: "MedRadar",
+    title: "MedRadar — find your medicine or an equivalent",
+    description: DESCRIPTION,
+    locale: "en",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {
@@ -39,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${noto.variable} ${notoArabic.variable} h-full`}>
       <body className="flex min-h-full flex-col font-sans">
         <SiteHeader />
+        <WakeBanner />
         <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-4 sm:pt-10">
           {children}
         </main>

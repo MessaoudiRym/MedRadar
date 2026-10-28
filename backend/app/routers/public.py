@@ -17,6 +17,7 @@ router = APIRouter(tags=["patients"])
 DEMO_MESSAGE = "Disponibilités simulées pour la démonstration."
 MAX_ACTIVE_ALERTS = 5
 DEFAULT_RADIUS_KM = 10
+NOT_COUNTED_HEADER = "x-medradar-check"
 
 
 @router.get("/pharmacies", response_model=list[PublicPharmacy])
@@ -81,10 +82,12 @@ def availability(
     shown = [e for g in groups for e in g["en_stock"] + g["rupture"]]
     demo = any(e["est_demo"] for e in shown)
 
-    # Anonymous statistics: the medicine and, at most, the district
-    db.add(Search(medicine_id=medicine["id"],
-                  district=nearest_district(lat, lng) if position_given else None))
-    db.commit()
+    # Anonymous statistics: the medicine and, at most, the district. The automatic
+    # checks of the online version (scripts/smoke_test.py) are not counted.
+    if request.headers.get(NOT_COUNTED_HEADER) != "1":
+        db.add(Search(medicine_id=medicine["id"],
+                      district=nearest_district(lat, lng) if position_given else None))
+        db.commit()
 
     return {
         "medicament": medicine,

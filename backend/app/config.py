@@ -31,7 +31,13 @@ def _database_url():
 DATABASE_URL = _database_url()
 MEDICINES_CSV = Path(os.environ.get(
     "MEDICINES_CSV", PROJECT_ROOT / "data" / "clean" / "medicaments.csv"))
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "").rstrip("/")
+# Production frontend(s) allowed by CORS, separated by commas. The first one is
+# used for the links in emails.
+FRONTEND_URLS = [u.strip().rstrip("/") for u in os.environ.get("FRONTEND_URL", "").split(",")
+                 if u.strip()]
+FRONTEND_URL = FRONTEND_URLS[0] if FRONTEND_URLS else ""
+# Short git hash of the running version: given by Render, else read from git if available
+APP_VERSION = os.environ.get("RENDER_GIT_COMMIT", "").strip()[:7] or None
 
 # Photo recognition: a vision model reads the medicine box.
 # Without LLM_API_KEY the feature is off and the rest of the API works normally.

@@ -295,3 +295,12 @@ def test_brevo_request(monkeypatch):
     with pytest.raises(MailError) as error:
         mailer.send("refused@example.com", "Subject", "Text", "<p>Text</p>")
     assert "401" in str(error.value) and "secret-key" not in str(error.value)
+
+
+def test_automatic_checks_are_not_counted_in_statistics(client, store):
+    medicine = find_medicine(store, "GLUCOPHAGE 850", "850MG")
+    response = client.get(f"/medicines/{medicine['id']}/availability", params=ORAN,
+                          headers={"X-MedRadar-Check": "1"})
+    assert response.status_code == 200
+    with SessionLocal() as db:
+        assert db.query(Search).count() == 0

@@ -2,6 +2,7 @@
 // Every call returns the JSON body, or throws an ApiError with an English message.
 
 import { translateApiMessage } from "./messages";
+import { markAwake, markWaking, WAKE_WINDOW_MS } from "./wake";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(
   /\/$/,
@@ -9,6 +10,10 @@ export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:800
 );
 
 const TIMEOUT_MS = 15_000;
+// Waits between two tries while the API wakes up (the last one is repeated)
+const RETRY_DELAYS_MS = [2_000, 3_000, 5_000, 8_000];
+// Answers of Render's proxy while the API starts or restarts
+const STARTING_STATUSES = new Set([502, 503, 504]);
 
 export class ApiError extends Error {
   // 0 means the API could not be reached (offline, server down, timeout)
@@ -46,7 +51,44 @@ interface ValidationItem {
   msg?: string;
 }
 
+/**
+ * Call the API. A read (GET) that cannot reach the API, or gets "starting" from
+ * Render's proxy, is tried again for up to a minute while the banner says the
+ * service is starting; only then is the error thrown. Writes are never repeated
+ * automatically (the same stock declaration must not be sent twice).
+ */
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const isRead = (options.method ?? "GET") === "GET";
+  const start = Date.now();
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const data = await request<T>(path, options);
+      if (attempt > 0) markAwake();
+      return data;
+    } catch (error) {
+      const starting = error instanceof ApiError && (error.isNetwork || STARTING_STATUSES.has(error.status));
+      const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+      if (!isRead || !starting || options.signal?.aborted || Date.now() - start + delay > WAKE_WINDOW_MS) {
+        if (attempt > 0) markAwake();
+        throw error;
+      }
+      markWaking();
+      await wait(delay, options.signal);
+    }
+  }
+}
+
+function wait(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    });
+  });
+}
+
+async function request<T>(path: string, options: RequestOptions): Promise<T> {
   const url = new URL(API_URL + path);
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));

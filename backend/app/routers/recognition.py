@@ -69,9 +69,15 @@ async def read_photo(request: Request) -> bytes:
 @router.get("/features", response_model=Features)
 def features(request: Request):
     """What this server can do: the app hides the buttons of what is off."""
-    return {"photo_recognition": request.app.state.reader is not None,
-            "delivery_scan": request.app.state.delivery_reader is not None,
-            "email_alerts": request.app.state.mailer is not None}
+    return enabled_features(request.app)
+
+
+def enabled_features(app):
+    """Optional features that are on (never a key or a model name)."""
+    return {"photo_recognition": app.state.reader is not None,
+            "delivery_scan": app.state.delivery_reader is not None,
+            "email_alerts": app.state.mailer is not None,
+            "multilingual_search": app.state.interpreter is not None}
 
 
 @router.post(

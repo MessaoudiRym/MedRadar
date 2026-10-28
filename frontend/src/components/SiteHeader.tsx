@@ -26,12 +26,21 @@ export function SiteHeader() {
           <Logo />
           MedRadar
         </Link>
-        <Link
-          href="/pharmacien"
-          className="rounded-lg px-2 py-2 font-semibold text-brand underline decoration-2 hover:text-brand-dark"
-        >
-          Pharmacist area
-        </Link>
+        <nav aria-label="Main" className="flex items-center gap-2">
+          <Link
+            href="/demo"
+            lang="fr"
+            className="hidden rounded-lg px-2 py-2 font-semibold text-brand underline decoration-2 hover:text-brand-dark sm:inline"
+          >
+            Guide pour tester
+          </Link>
+          <Link
+            href="/pharmacien"
+            className="rounded-lg px-2 py-2 font-semibold text-brand underline decoration-2 hover:text-brand-dark"
+          >
+            Pharmacist area
+          </Link>
+        </nav>
       </div>
     </header>
   );

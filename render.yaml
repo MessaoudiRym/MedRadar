@@ -1,0 +1,64 @@
+# Render Blueprint: the MedRadar API, on the FREE plan.
+# Render > New > Blueprint > this repository. Secrets (sync: false) are asked once,
+# when the Blueprint is created: never write a real value in this file.
+#
+# No rootDir on purpose: on Render, files outside rootDir do not exist for the
+# service, and the API needs data/clean/medicaments.csv. buildFilter keeps
+# deploys to the changes that concern the API.
+services:
+  - type: web
+    name: medradar-api
+    runtime: python
+    plan: free
+    region: frankfurt # closest to Algeria; cannot be changed later
+    branch: main
+    buildCommand: pip install -r backend/requirements.txt
+    # One worker (512 MB on the free plan). Migrations run when the API starts
+    # (no pre-deploy command on the free plan). Our own log line per request
+    # replaces uvicorn's.
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --no-access-log
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - backend/**
+        - data/clean/**
+        - render.yaml
+        - .python-version
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      # Neon connection URL (with ?sslmode=require), the "pooled" one
+      - key: DATABASE_URL
+        sync: false
+      # 32 characters at least: python -c "import secrets; print(secrets.token_urlsafe(48))"
+      - key: JWT_SECRET
+        sync: false
+      # Vercel address of the site, without / at the end (several: separated by commas)
+      - key: FRONTEND_URL
+        sync: false
+      # Optional AI features (empty key = off, the rest works)
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: LLM_API_KEY
+        sync: false
+      # Flash-Lite: much larger free quota than gemini-3.8-flash (20 requests a day)
+      - key: LLM_MODEL
+        value: gemini-3.5-flash-lite
+      - key: LLM_FALLBACK_MODEL
+        value: gemini-3.8-flash
+      - key: LLM_SEARCH_MODEL
+        value: gemini-3.5-flash-lite
+      - key: ARABIC_SEARCH_MODE
+        value: llm_first
+      # Optional alert emails (Brevo); empty key = alert form hidden
+      - key: EMAIL_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_FROM_NAME
+        value: MedRadar
+      - key: HISTORY_PHOTO_RETENTION_DAYS
+        value: "90"
+      - key: HISTORY_RETENTION_MONTHS
+        value: "24"

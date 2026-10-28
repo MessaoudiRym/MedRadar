@@ -2,13 +2,17 @@
   "name": "medradar-frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test --project=desktop --project=mobile",
-    "screenshots": "playwright test --project=screenshots"
+    "screenshots": "playwright test --project=screenshots",
+    "test:prod": "playwright test --config=playwright.production.config.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

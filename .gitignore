@@ -1,6 +1,6 @@
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.pem
 *.key
 
@@ -27,6 +27,8 @@ Thumbs.db
 # Local databases
 *.db
 *.db-journal
+*.sqlite
+*.sqlite3
 
 # Real photos for scripts/evaluate_recognition.py: never committed
 docs/recognition_samples/photos/

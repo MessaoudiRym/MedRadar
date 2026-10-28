@@ -1,0 +1,44 @@
+# Checks the online version every 6 hours, and on demand (Actions > smoke-test >
+# Run workflow). If a check fails, the workflow fails and GitHub emails you.
+#
+# Repository variables (Settings > Secrets and variables > Actions > Variables):
+#   API_URL   e.g. https://medradar-api.onrender.com
+#   SITE_URL  e.g. https://medradar.vercel.app
+#   DEMO_PHARMACIST_EMAIL  optional (default pharmacien1@medradar.demo)
+# Repository secret: DEMO_PHARMACIST_PASSWORD
+name: smoke-test
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Install the HTTP client
+        run: pip install httpx==0.28.1
+
+      - name: Check the online version
+        env:
+          API_URL: ${{ vars.API_URL }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          DEMO_PHARMACIST_EMAIL: ${{ vars.DEMO_PHARMACIST_EMAIL }}
+          DEMO_PHARMACIST_PASSWORD: ${{ secrets.DEMO_PHARMACIST_PASSWORD }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$SITE_URL" ]; then
+            echo "Set the repository variables API_URL and SITE_URL (see docs/deployment.md)."
+            exit 1
+          fi
+          python scripts/smoke_test.py "$API_URL" "$SITE_URL"

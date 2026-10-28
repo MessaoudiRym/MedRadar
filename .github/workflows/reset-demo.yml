@@ -1,0 +1,43 @@
+# Puts the demo data back in its initial state, every night at 03:00 in Algiers
+# (02:00 UTC; Algeria has no daylight saving), and on demand (Actions > reset-demo >
+# Run workflow). Real pharmacies and the admin account are never touched.
+#
+# Repository secrets (Settings > Secrets and variables > Actions > Secrets):
+#   DATABASE_URL, DEMO_PHARMACIST_PASSWORD
+name: reset-demo
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reset-demo
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install the API dependencies
+        run: pip install -r backend/requirements.txt
+
+      # The secrets are only given to this step; GitHub hides them in the logs,
+      # and the script only prints the database host, never the URL
+      - name: Reset the demo data
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEMO_PHARMACIST_PASSWORD: ${{ secrets.DEMO_PHARMACIST_PASSWORD }}
+        run: python scripts/reset_demo_data.py

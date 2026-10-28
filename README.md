@@ -2,6 +2,8 @@
 
 **MedRadar helps Algerian patients find an out-of-stock medicine: a registered equivalent, or a nearby pharmacy that has it.**
 
+**Live demo:** _link to add after deployment (https://…vercel.app)_ · **Testing guide for the jury:** _same link + `/demo`_
+
 ## The problem
 
 Medicine shortages are frequent in Algeria. Patients, especially those with chronic conditions (diabetes, hypertension, thyroid disorders, epilepsy), go from pharmacy to pharmacy or back to their doctor, even when:
@@ -310,6 +312,10 @@ Without a domain of your own, some emails may land in spam: tell the jury to che
 **Results** (October 2026, real Gemini free tier, `python scripts/evaluate_delivery_scan.py --demo`): on the fictional demo note (20 lines: 2 back orders, 1 parapharmacy product, 1 line without dose, fictional prices), sharp and photo-like, **100 % of the lines read, 100 % exact matches (32/32), 0 false positive** (no wrong medicine ticked), the 2 lines without a dose left "to check" with the right medicine among the candidates, all back orders detected, supplier, number and date read, 15 s per note on average. The free tier is sometimes overloaded or slow: the pharmacist is then asked to try again in a minute, or to update by hand. These results come from one fictional note: to measure on real notes, put photos in `docs/delivery_samples/photos/` (ignored by git) with a `<note>.expected.csv` (`designation,nom_marque_attendu,dosage_attendu,livre`) and an optional `<note>.document.json` per note, then run the script without `--demo`. Results are written to [docs/delivery_scan_results.md](docs/delivery_scan_results.md).
 
 **Demo.** `python scripts/generate_demo_delivery_note.py` draws the fictional note (`frontend/public/demo/`, sharp and photo-like); demo accounts see "Try with a demo delivery note" on the scan page, and `scripts/generate_demo_data.py` adds 4 fictional notes to the history of the first demo pharmacy (one with its photo, one cancelled).
+
+## Deployment
+
+MedRadar runs online on free plans only, without a credit card: [Neon](https://neon.tech) (PostgreSQL), [Render](https://render.com) (API, see `render.yaml`), [Vercel](https://vercel.com) (site), [UptimeRobot](https://uptimerobot.com) (monitoring, and keeps the free API awake) and GitHub Actions (nightly reset of the demo data, check of the online version every 6 hours). The step-by-step guide, in French, is in [docs/deployment.md](docs/deployment.md).
 
 ## Who built what
 
