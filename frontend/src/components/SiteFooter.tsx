@@ -23,7 +23,7 @@ export function SiteFooter() {
         </p>
         <p className="flex flex-wrap gap-x-6 gap-y-2">
           <Link href="/demo" className="font-semibold text-brand underline">
-            Testing guide · <span lang="fr">Guide pour tester</span>
+            Testing guide
           </Link>
           <Link href="/confidentialite" className="font-semibold text-brand underline">
             Privacy policy
