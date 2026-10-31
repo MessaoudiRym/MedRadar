@@ -20,7 +20,7 @@ Pharmacies and stock are fictional (see below), and the demo data is reset every
 
 ## Contents
 
-[The problem](#the-problem) · [What MedRadar does](#what-medradar-does) · [Real or simulated](#what-is-real-and-what-is-simulated) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Pharmacist accounts](#pharmacist-accounts) · [How equivalents are found](#how-equivalents-are-found) · [Multilingual search](#multilingual-search) · [Photo recognition](#photo-recognition) · [Email alerts](#email-alerts) · [Delivery note scan](#delivery-note-scan-and-history-pharmacists) · [Deployment](#deployment) · [Who built what](#who-built-what) · [Not finished yet](#not-finished-yet)
+[The problem](#the-problem) · [What MedRadar does](#what-medradar-does) · [Real or simulated](#what-is-real-and-what-is-simulated) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Pharmacist accounts](#pharmacist-accounts) · [How equivalents are found](#how-equivalents-are-found) · [Multilingual search](#multilingual-search) · [Photo recognition](#photo-recognition) · [Email alerts](#email-alerts) · [Delivery note scan](#delivery-note-scan-and-history-pharmacists) · [Deployment](#deployment) · [Who built what](#who-built-what)
 
 ## The problem
 
@@ -341,14 +341,4 @@ MedRadar runs online on free plans only, without a credit card: [Neon](https://n
 
 ## Who built what
 
-Solo project by **Rym Sara Messaoudi**: user interviews, nomenclature cleaning, search and equivalents engine, API, web app, deployment and demo video.
-
-## Not finished yet
-
-- **No real pharmacy yet.** Pharmacies and stock levels are fictional; real pharmacies can register, but none has joined yet.
-- **Oran only.** The map, the districts and the demo pharmacies cover Oran.
-- **English interface.** The search understands Arabic and Darija, and the testing guide is also in French, but the app itself is not yet translated into Arabic.
-- **Photo recognition not yet measured on real boxes.** It was tested with a few photos; the evaluation script is ready (`scripts/evaluate_recognition.py`), but no set of real box photos has been measured yet.
-- **Results measured on test data written for the project.** The multilingual search was measured on 69 queries written for the project, and the delivery note scan on one fictional note: both should be measured again with real patients and real notes.
-- **Free plans.** The AI features depend on the free Gemini quota (when it is reached, the patient is asked to type the name instead), and alert emails may land in spam, as they are sent without a domain of our own.
-- **Small known issues.** The dose can appear twice in a title when the official name already contains it ("Glucophage 850 850 mg"), and the admin logs in on the page titled "Pharmacist login".
+Solo project by **Rym Sara Messaoudi**: nomenclature cleaning, search and equivalents engine, API, web app, deployment and demo video.
