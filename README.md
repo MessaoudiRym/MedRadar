@@ -313,7 +313,7 @@ On a medicine page, a patient leaves an email to be told when a pharmacy near th
 
 4. Restart the API. `GET /features` now returns `"email_alerts": true`.
 
-Without a domain of your own, some emails may land in spam: tell the jury to check it. The tests and the end-to-end tests use a simulated sender (`EMAIL_PROVIDER=fake`) and never send an email.
+Emails are sent without a domain of our own, so they can land in the spam folder: check it if an alert email does not arrive. The tests and the end-to-end tests use a simulated sender (`EMAIL_PROVIDER=fake`) and never send an email.
 
 ## Delivery note scan and history (pharmacists)
 
