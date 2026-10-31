@@ -29,10 +29,9 @@ export function SiteHeader() {
         <nav aria-label="Main" className="flex items-center gap-2">
           <Link
             href="/demo"
-            lang="fr"
             className="hidden rounded-lg px-2 py-2 font-semibold text-brand underline decoration-2 hover:text-brand-dark sm:inline"
           >
-            Guide pour tester
+            Testing guide
           </Link>
           <Link
             href="/pharmacien"
